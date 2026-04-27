@@ -1,0 +1,438 @@
+/*
+  何を: 読書画面のスタイル（CSS変数 + ベース + Markdown描画 + ページネーション）
+  なぜ: 仕様書 §2 のテーマCSS変数定義、§4 のCSS multi-columnページネーション
+*/
+@import 'tailwindcss';
+
+/* ─────────────────────────────────────────────────────────
+   CSS変数（仕様書 §2 のライトテーマ）
+   ───────────────────────────────────────────────────────── */
+:root {
+  --color-bg: #faf8f5;
+  --color-text: #1a1a1a;
+  --color-text-secondary: #555;
+  --color-accent: #8b4513;
+  --color-border: #e0d8d0;
+  --color-code-bg: #f0ece6;
+  --color-blockquote-border: #c4b5a0;
+  --font-body: 'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+  --font-code: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;
+  --line-height: 1.9;
+  --content-padding: 1.5rem;
+
+  /* レイアウト用 */
+  --header-h: 48px;
+  --indicator-h: 40px;
+  --sidebar-w: 240px;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* ─────────────────────────────────────────────────────────
+   Markdown描画スタイル（仕様書 §2）
+   日本語の読みやすさを最優先（line-height: 1.9）
+   ───────────────────────────────────────────────────────── */
+.markdown {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: var(--line-height);
+  color: var(--color-text);
+  word-break: normal;
+  overflow-wrap: anywhere;
+  line-break: strict;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 1.6em 0 0.8em;
+  /* 何を: 見出しがページ末尾に孤立する問題を緩和
+     なぜ: 仕様書 §4 の制約。完全解決はv0.2 */
+  break-after: avoid;
+  page-break-after: avoid;
+}
+.markdown h1 { font-size: 1.8rem; border-bottom: 1px solid var(--color-border); padding-bottom: 0.3em; }
+.markdown h2 { font-size: 1.5rem; }
+.markdown h3 { font-size: 1.25rem; }
+.markdown h4 { font-size: 1.1rem; }
+.markdown h5 { font-size: 1rem; color: var(--color-text-secondary); }
+.markdown h6 { font-size: 0.95rem; color: var(--color-text-secondary); }
+
+.markdown p {
+  margin: 0 0 1em;
+  text-align: justify;
+}
+
+.markdown a {
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.markdown ul,
+.markdown ol {
+  margin: 0 0 1em;
+  padding-left: 1.6em;
+}
+.markdown li {
+  margin-bottom: 0.3em;
+}
+
+.markdown blockquote {
+  margin: 1em 0;
+  padding: 0.4em 1em;
+  border-left: 4px solid var(--color-blockquote-border);
+  color: var(--color-text-secondary);
+  background: rgba(196, 181, 160, 0.08);
+}
+
+.markdown code {
+  font-family: var(--font-code);
+  font-size: 0.9em;
+  background: var(--color-code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+.markdown pre {
+  font-family: var(--font-code);
+  background: var(--color-code-bg);
+  padding: 0.9em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 1em 0;
+  /* 画像と同様、ブロック内分割を避ける */
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.95em;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--color-border);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.markdown th {
+  background: var(--color-code-bg);
+  font-weight: 700;
+}
+
+.markdown img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+  /* 画像がページ境界をまたぐのを避ける（仕様書 §4 制約） */
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 2em 0;
+}
+
+/* wikilinks: 存在しないチャプターはグレーアウト（仕様書 §2） */
+.markdown a.wikilink-broken {
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* ─────────────────────────────────────────────────────────
+   ページネーション（仕様書 §4）
+   CSS multi-column を用いて scrollWidth / viewportWidth でページ数算出
+   ───────────────────────────────────────────────────────── */
+.paginator-frame {
+  /* 何を: ページネーションのビューポート枠（padding なし）
+     なぜ: padding を持たせると overflow:hidden の clip 領域が padding box になり、
+           次ページの内容が padding 領域から visually 透けてしまう。
+           ページ幅 = frame 全幅と同一にすることで translateX が 1ページ幅と一致する */
+  position: relative;
+  width: 100%;
+  height: calc(100dvh - var(--header-h) - var(--indicator-h));
+  overflow: hidden;
+  touch-action: pan-y;
+}
+
+.paginator-track {
+  /* 何を: 実際のコンテンツを multi-column で横方向に並べる層
+     なぜ: translateX で -currentPage * trackWidth だけずらしてページ送り */
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  column-fill: auto;
+  column-gap: 0;
+  /* column-width はJSで frame 幅に合わせて設定（リサイズで再計算） */
+  transition: transform 240ms ease;
+  will-change: transform;
+}
+
+/* 何を: 本文の各ブロック要素に水平パディングを与える
+   なぜ: frame/track をフル幅にしたため、視覚的な左右余白を column 内の要素側で確保する */
+.paginator-track .markdown > * {
+  padding-inline: var(--content-padding);
+  box-sizing: border-box;
+}
+.paginator-track .markdown > h1,
+.paginator-track .markdown > h2,
+.paginator-track .markdown > h3,
+.paginator-track .markdown > h4,
+.paginator-track .markdown > h5,
+.paginator-track .markdown > h6,
+.paginator-track .markdown > p,
+.paginator-track .markdown > ul,
+.paginator-track .markdown > ol,
+.paginator-track .markdown > blockquote,
+.paginator-track .markdown > pre,
+.paginator-track .markdown > table {
+  max-width: 100%;
+}
+
+.paginator-track > .markdown {
+  height: 100%;
+}
+
+/* スクロールモード: column関連を無効化し縦スクロールに戻す（§4 フォールバック） */
+.paginator-frame.scroll-mode {
+  height: calc(100dvh - var(--header-h));
+  overflow-y: auto;
+  overflow-x: hidden;
+  touch-action: pan-y;
+}
+.paginator-frame.scroll-mode .paginator-track {
+  height: auto;
+  column-width: auto !important;
+  columns: auto !important;
+  transform: none !important;
+}
+
+/* タップ領域（左右半分）: 視覚化はせず、領域だけ確保 */
+.tap-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 5;
+}
+.tap-zone.left { left: 0; }
+.tap-zone.right { right: 0; }
+
+/* ページインジケーター */
+.page-indicator {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--indicator-h);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  background: linear-gradient(to top, var(--color-bg), transparent);
+  pointer-events: none;
+  user-select: none;
+  transition: opacity 400ms ease;
+}
+.page-indicator.faded { opacity: 0.25; }
+
+/* ヘッダー */
+.app-header {
+  position: sticky;
+  top: 0;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+  z-index: 20;
+}
+.app-header .title {
+  flex: 1;
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.icon-btn:hover { background: var(--color-code-bg); }
+
+/* チャプターナビ（仕様書 §3） */
+.chapter-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-w);
+  background: var(--color-bg);
+  border-right: 1px solid var(--color-border);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(-100%);
+  transition: transform 220ms ease;
+}
+.chapter-nav.open {
+  transform: translateX(0);
+}
+.chapter-nav-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 25;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 220ms ease;
+}
+.chapter-nav-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+.chapter-nav .nav-header {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.chapter-nav .nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0.5rem 0;
+  overflow-y: auto;
+  flex: 1;
+}
+.chapter-nav .nav-list li button {
+  display: block;
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.95rem;
+  color: var(--color-text);
+  border-left: 3px solid transparent;
+}
+.chapter-nav .nav-list li button:hover {
+  background: var(--color-code-bg);
+}
+.chapter-nav .nav-list li button.active {
+  background: var(--color-code-bg);
+  border-left-color: var(--color-accent);
+  font-weight: 700;
+}
+
+/* デスクトップ: サイドバー常時表示
+   何を: サイドバー幅ぶん本文側を寄せる
+   なぜ: margin-left では box の幅は変わらず CSS multi-column の column-width 計算が
+         viewport 全幅で動いてしまうため、padding-left ではなく width を狭める */
+@media (min-width: 768px) {
+  .chapter-nav {
+    transform: translateX(0);
+    box-shadow: none;
+  }
+  .chapter-nav.hidden-desktop {
+    transform: translateX(-100%);
+  }
+  .chapter-nav-overlay {
+    display: none;
+  }
+  .with-sidebar .app-header,
+  .with-sidebar .paginator-frame {
+    margin-left: var(--sidebar-w);
+    width: calc(100% - var(--sidebar-w));
+  }
+  .with-sidebar .page-indicator {
+    left: var(--sidebar-w);
+    right: 0;
+  }
+}
+
+/* ウェルカム画面 */
+.welcome {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+.welcome h1 {
+  font-size: 1.4rem;
+  margin: 0 0 0.5rem;
+}
+.welcome .hint {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+.welcome .file-btn {
+  display: inline-block;
+  padding: 0.9rem 1.6rem;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.welcome .error {
+  color: #b03030;
+  font-size: 0.9rem;
+}
+
+/* ヘッダー内のドロワーオープンボタンはモバイル時のみ */
+@media (min-width: 768px) {
+  .icon-btn.menu-toggle {
+    display: none;
+  }
+}
