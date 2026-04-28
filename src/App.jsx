@@ -17,7 +17,14 @@ import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
 import { useSettings } from './hooks/useSettings.js';
 
-const SAMPLE_URL = `${import.meta.env.BASE_URL}test.mkb`;
+// 何を: 同梱サンプル一覧
+// なぜ: ウェルカム画面から各形式（mkb / html / json / cbz）をワンタップで開けるように
+const SAMPLES = [
+  { label: '📚 サンプル mkb（複数チャプター）', url: `${import.meta.env.BASE_URL}test.mkb`, name: 'test.mkb' },
+  { label: '🌐 サンプル HTML',                 url: `${import.meta.env.BASE_URL}test.html`, name: 'test.html' },
+  { label: '🧾 サンプル JSON',                 url: `${import.meta.env.BASE_URL}test.json`, name: 'test.json' },
+  { label: '🖼 サンプル CBZ（5枚画像）',        url: `${import.meta.env.BASE_URL}test.cbz`, name: 'test.cbz' },
+];
 
 export default function App() {
   // 画面 ('shelf' | 'reader')
@@ -98,17 +105,20 @@ export default function App() {
     setActiveEntry(null);
     await loadFileAndRemember(file);
   }
-  async function handleLoadSample() {
+  // 同梱サンプルを開く（URL 指定）
+  async function handleLoadSample(url, displayName) {
     setActiveEntry(null);
+    const u = url || SAMPLES[0].url;
+    const n = displayName || SAMPLES[0].name;
     try {
-      const res = await fetch(SAMPLE_URL);
+      const res = await fetch(u);
       if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
       const blob = await res.blob();
-      const file = new File([blob], 'test.mkb', { type: 'application/zip' });
+      const file = new File([blob], n, { type: blob.type });
       await loadFileAndRemember(file);
     } catch (e) {
       console.error(e);
-      loadFromUrl(SAMPLE_URL, 'test.mkb');
+      loadFromUrl(u, n);
     }
   }
 
@@ -142,6 +152,7 @@ export default function App() {
         onOpenBook={handleOpenBook}
         onDeleteBook={deleteBook}
         onLoadSample={handleLoadSample}
+        samples={SAMPLES}
       />
     );
   }

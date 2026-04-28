@@ -34,7 +34,7 @@ export default defineConfig({
       workbox: {
         // 何を: アプリシェル一式 + 同梱の test.mkb を precache
         // なぜ: オフラインで test.mkb を開いて検証できるように
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2,mkb}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,mkb,json,cbz}'],
         navigateFallback: '/mkb-reader/index.html',
         // 何を: 新しい SW を即座にアクティブ化し、既存タブにも反映する
         // なぜ: 既定の autoUpdate では新 SW が waiting 状態で止まり、

@@ -19,7 +19,8 @@ export default function Bookshelf({
   onPickFile,        // (File) => void: 端末からファイルを選択
   onOpenBook,        // (BookEntry) => void: 保存済みを開く
   onDeleteBook,      // (id) => Promise<void>
-  onLoadSample,      // () => void: 同梱の test.mkb を開く（任意）
+  onLoadSample,      // (url, displayName) => void: 同梱サンプルを開く（任意）
+  samples,           // [{ label, url, name }] 同梱サンプル一覧（任意）
   error,
 }) {
   const inputRef = useRef(null);
@@ -103,13 +104,27 @@ export default function Bookshelf({
         <div className="bookshelf-empty">
           <p>本棚は空です</p>
           <p className="hint">右上の「＋ 開く」からファイルを選択してください</p>
-          {onLoadSample && (
-            <button type="button" className="text-sample" onClick={onLoadSample}>
-              同梱のテスト用 mkb を開く
-            </button>
+          {samples && samples.length > 0 && (
+            <>
+              <p className="hint" style={{ marginTop: '1rem' }}>または同梱のテスト用ファイルを開く:</p>
+              <ul className="sample-list">
+                {samples.map((s) => (
+                  <li key={s.url}>
+                    <button
+                      type="button"
+                      className="text-sample"
+                      onClick={() => onLoadSample?.(s.url, s.name)}
+                    >
+                      {s.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
         </div>
       ) : (
+        <>
         <ul className="bookshelf-list">
           {books.map((b) => {
             const off = swipeOffset[b.id] || 0;
@@ -142,6 +157,25 @@ export default function Bookshelf({
             );
           })}
         </ul>
+        {samples && samples.length > 0 && (
+          <div className="bookshelf-samples">
+            <p className="hint">同梱のテスト用ファイル:</p>
+            <ul>
+              {samples.map((s) => (
+                <li key={s.url}>
+                  <button
+                    type="button"
+                    className="text-sample"
+                    onClick={() => onLoadSample?.(s.url, s.name)}
+                  >
+                    {s.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        </>
       )}
     </div>
   );

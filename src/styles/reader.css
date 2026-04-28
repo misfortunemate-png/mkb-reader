@@ -615,6 +615,25 @@ button {
   font-size: 0.8rem;
   color: var(--color-text-secondary);
 }
+.sample-list, .bookshelf-samples ul {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0;
+}
+.sample-list li, .bookshelf-samples li {
+  margin: 0.2rem 0;
+}
+.bookshelf-samples {
+  border-top: 1px dashed var(--color-border);
+  margin-top: 1.5rem;
+  padding: 1rem;
+}
+.bookshelf-samples .hint {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 0.4rem;
+  letter-spacing: 0.05em;
+}
 
 /* ─────────────────────────────────────────────────────────
    設定パネル（仕様書 §5 §6 §7 ボトムシート）
