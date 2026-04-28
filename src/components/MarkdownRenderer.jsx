@@ -6,7 +6,7 @@ import remarkGfm from 'remark-gfm';
 import remarkWikiLink from 'remark-wiki-link';
 import { useMemo } from 'react';
 
-export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick }) {
+export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick, hrStyle = 'page-break' }) {
   // 何を: wikilinks プラグインに「既存リンク一覧」と「リンク先解決ルール」を渡す
   // なぜ: remark-wiki-link は permalinks[] に含まれないものを class="new" として扱うため、
   //       pageResolver だけでは全リンクが broken 扱いになる
@@ -91,6 +91,11 @@ export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick })
           // 画像: alt/src をそのまま使う（パスは parser で Blob URL に置換済み）
           img({ src, alt }) {
             return <img src={src} alt={alt || ''} loading="lazy" />;
+          },
+          // 何を: <hr> に data-style 属性を付与し、CSS 側で 4 種の表示方式を切替
+          // なぜ: 仕様書 §7 — 改ページ／区切り線／余白／装飾の4方式
+          hr() {
+            return <hr data-style={hrStyle} />;
           },
         }}
       >

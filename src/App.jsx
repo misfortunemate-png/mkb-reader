@@ -1,26 +1,26 @@
 // 何を: アプリのルートコンポーネント
-// なぜ: 仕様書 Phase 1 §1〜§4 + Phase 2 §8（本棚） + §9（PWA基本対応）の統合
+// なぜ: 仕様書 Phase 1 §1〜§4 + Phase 2 §5〜§9 を統合
 //
-// 画面遷移: 本棚（Bookshelf） ↔ ビューア（Reader）
-// アプリ起動時はまず本棚画面。保存済みファイルがあればリスト、なければウェルカム。
+// 画面: 本棚（Bookshelf） ↔ ビューア（Reader）
+// ビューアでは右上のギア（⚙）から SettingsPanel をボトムシート表示
 
 import { useEffect, useMemo, useState } from 'react';
 import FileLoader from './components/FileLoader.jsx';
 import ChapterNav from './components/ChapterNav.jsx';
 import Paginator from './components/Paginator.jsx';
 import Bookshelf from './components/Bookshelf.jsx';
+import SettingsPanel from './components/SettingsPanel.jsx';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
+import { useSettings } from './hooks/useSettings.js';
 
-const MODE_KEY = 'mkb-reader.mode'; // 'page' | 'scroll'（仕様書 §4 localStorage 保存）
 const SAMPLE_URL = `${import.meta.env.BASE_URL}test.mkb`;
 
 export default function App() {
-  // 画面 ('shelf' | 'reader') — 仕様書 §8 の遷移
+  // 画面 ('shelf' | 'reader')
   const [view, setView] = useState('shelf');
-
-  // 現在ビューアで開いているエントリ（本棚由来 or ピッカー由来 / null=未保存）
   const [activeEntry, setActiveEntry] = useState(null);
+  const [lastFile, setLastFile] = useState(null);
 
   const { mkb, error, loading, loadFile, loadFromUrl } = useMkbLoader();
   const {
@@ -32,16 +32,12 @@ export default function App() {
     findByTitle,
   } = useBookshelf();
 
-  const [currentId, setCurrentId] = useState(null);
-  const [mode, setMode] = useState(() => {
-    try { return localStorage.getItem(MODE_KEY) || 'page'; } catch { return 'page'; }
-  });
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  // §5 §6 §7 設定
+  const { settings, update, applyPreset, activePreset } = useSettings();
 
-  // 表示モードを localStorage に保存（仕様書 §4）
-  useEffect(() => {
-    try { localStorage.setItem(MODE_KEY, mode); } catch { /* ignore */ }
-  }, [mode]);
+  const [currentId, setCurrentId] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // mkb 読込時、最初のチャプターを選択しビューア画面へ遷移
   useEffect(() => {
@@ -67,22 +63,23 @@ export default function App() {
     if (found) setCurrentId(found.id);
   }
 
-  // ───── 本棚 → ビューア ─────
+  // ───── 共通ローダ（lastFile を保持して save 経路に渡す） ─────
+  async function loadFileAndRemember(file) {
+    setLastFile(file);
+    return loadFile(file);
+  }
 
-  // 本棚の項目を開く
+  // ───── 本棚 → ビューア ─────
   async function handleOpenBook(entry) {
     setActiveEntry(entry);
+    setLastFile(null); // 本棚由来は既保存
     await updateLastOpened(entry.id);
     await loadFile(bookEntryToFile(entry));
   }
-
-  // 端末ピッカーからファイルを開く（本棚画面）
   async function handlePickFile(file) {
-    setActiveEntry(null); // 未保存状態で開く
+    setActiveEntry(null);
     await loadFileAndRemember(file);
   }
-
-  // 同梱サンプルを開く（本棚画面）
   async function handleLoadSample() {
     setActiveEntry(null);
     try {
@@ -93,27 +90,11 @@ export default function App() {
       await loadFileAndRemember(file);
     } catch (e) {
       console.error(e);
-      // useMkbLoader のフォールバックを使う
       loadFromUrl(SAMPLE_URL, 'test.mkb');
     }
   }
 
   // ───── ビューア → 本棚保存 ─────
-
-  // 「本棚に保存」: 仕様書 §8 — 同名チェックで上書き確認
-  // mkb の場合は元のファイルバイナリ、md/txt は loadFile に渡した File を保持していないため
-  // ここでは「現在開いているコンテンツのバイナリ」を再生成する戦略をとる:
-  // - .mkb 由来でない場合（直近に loadFile された File が手元に無い場合）は、
-  //   メタデータ + index.md を MD として保存する fallback でも動く
-  // ただし、最も素直なのは loadFile 直前の File を保持しておくこと。
-  // → useMkbLoader を拡張して最後の File を返すよりも、loadFile 経由でラップする
-  //   方法を採る。下の lastFileRef に保持。
-  const [lastFile, setLastFile] = useState(null);
-  async function loadFileAndRemember(file) {
-    setLastFile(file);
-    return loadFile(file);
-  }
-
   async function handleSaveCurrent() {
     if (!mkb) return;
     if (!lastFile) {
@@ -121,11 +102,9 @@ export default function App() {
       return;
     }
     const entry = await fileToBookEntry(lastFile, mkb.metadata);
-    // 同タイトルがあれば上書き確認（仕様書 §8）
     const dup = await findByTitle(entry.title);
     if (dup) {
       if (!confirm(`「${entry.title}」は既に本棚にあります。上書きしますか？`)) return;
-      // 上書き: 既存 id を流用し addedAt を維持
       entry.id = dup.id;
       entry.addedAt = dup.addedAt;
     }
@@ -135,7 +114,6 @@ export default function App() {
   }
 
   // ───── 本棚画面 ─────
-
   if (view === 'shelf') {
     return (
       <Bookshelf
@@ -151,9 +129,7 @@ export default function App() {
   }
 
   // ───── ビューア画面 ─────
-
   if (!mkb) {
-    // 読み込み失敗等のフォールバック
     return (
       <FileLoader
         onSelect={loadFileAndRemember}
@@ -164,7 +140,6 @@ export default function App() {
     );
   }
 
-  // 単一チャプター時はナビ非表示（仕様書 §3）
   const showNav = mkb.chapters.length > 1;
   const isSaved = !!activeEntry;
 
@@ -199,7 +174,6 @@ export default function App() {
             </span>
           )}
         </div>
-        {/* 本棚に戻る */}
         <button
           type="button"
           className="icon-btn"
@@ -209,7 +183,6 @@ export default function App() {
         >
           ⌂
         </button>
-        {/* 本棚に保存（仕様書 §8） */}
         <button
           type="button"
           className="icon-btn"
@@ -220,22 +193,31 @@ export default function App() {
         >
           {isSaved ? '★' : '☆'}
         </button>
-        {/* ページ／スクロール切替 */}
         <button
           type="button"
           className="icon-btn"
-          onClick={() => setMode((m) => (m === 'page' ? 'scroll' : 'page'))}
-          aria-label="ページ／スクロール切替"
-          title={mode === 'page' ? 'スクロールに切替' : 'ページ送りに切替'}
+          onClick={() => setSettingsOpen(true)}
+          aria-label="設定"
+          title="設定"
         >
-          ⇄
+          ⚙
         </button>
       </header>
       <Paginator
         chapter={currentChapter}
         chapters={mkb.chapters}
         onWikiLinkClick={handleWikiLinkClick}
-        mode={mode}
+        mode={settings.mode}
+        swipeDirection={settings.swipeDirection}
+        hrStyle={settings.hrStyle}
+      />
+      <SettingsPanel
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        update={update}
+        applyPreset={applyPreset}
+        activePreset={activePreset}
       />
     </div>
   );

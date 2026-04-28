@@ -5,7 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 import { usePagination } from '../hooks/usePagination.js';
 import MarkdownRenderer from './MarkdownRenderer.jsx';
 
-export default function Paginator({ chapter, chapters, onWikiLinkClick, mode }) {
+export default function Paginator({
+  chapter,
+  chapters,
+  onWikiLinkClick,
+  mode,
+  swipeDirection = 'horizontal',
+  hrStyle = 'page-break',
+}) {
   const enabled = mode === 'page';
   const frameRef = useRef(null);
   const trackRef = useRef(null);
@@ -58,9 +65,16 @@ export default function Paginator({ chapter, chapters, onWikiLinkClick, mode }) 
       const t = e.changedTouches[0];
       const dx = t.clientX - startX;
       const dy = t.clientY - startY;
-      // 横方向の移動が縦より大きく、閾値超え
-      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
-        if (dx < 0) next(); else prev();
+      // 何を: スワイプ方向設定で X/Y を出し分け
+      // なぜ: 仕様書 §7 — 左右/上下のトグル
+      if (swipeDirection === 'vertical') {
+        if (Math.abs(dy) > 50 && Math.abs(dy) > Math.abs(dx)) {
+          if (dy < 0) next(); else prev();
+        }
+      } else {
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+          if (dx < 0) next(); else prev();
+        }
       }
       startX = startY = null;
     }
@@ -70,7 +84,7 @@ export default function Paginator({ chapter, chapters, onWikiLinkClick, mode }) 
       frame.removeEventListener('touchstart', onStart);
       frame.removeEventListener('touchend', onEnd);
     };
-  }, [enabled, next, prev]);
+  }, [enabled, next, prev, swipeDirection]);
 
   return (
     <>
@@ -90,6 +104,7 @@ export default function Paginator({ chapter, chapters, onWikiLinkClick, mode }) 
             chapter={chapter}
             chapters={chapters}
             onWikiLinkClick={onWikiLinkClick}
+            hrStyle={hrStyle}
           />
         </div>
       </div>
