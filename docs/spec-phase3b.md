@@ -107,6 +107,23 @@ Claude.ai Settings → Privacy → Export Data で取得するZIPに含まれる
 ]
 ```
 
+**ツリー構造の取り扱い（追補 v1.2）:**
+
+Claude.ai の会話はツリー構造で、メッセージを編集または再生成すると新しい枝が作られ、
+古い枝も `chat_messages[]` に残る。会話オブジェクトの `current_leaf_message_uuid`
+（フィールド名揺れ: `current_leaf` / `leaf_message_uuid` も許容）が「現在表示中の葉」
+を指す。各メッセージの `parent_message_uuid` で親をたどる。
+
+chatConverter.js は次の戦略で「現在表示されている分岐」だけを抽出する:
+
+1. `current_leaf_message_uuid` が指定されていればそれを葉として採用
+2. 無ければ「他から親として参照されていない＝葉である」もののうち最後を葉と推定
+3. `parent_message_uuid` を辿りながらルートに向かって path を回収
+4. ループや欠損を検出した場合は安全のため全件返す（情報を失わないことを優先）
+
+ChatImporter UI には「最終分岐のみ / 全分岐」のトグルを置き、既定は「最終分岐のみ」。
+全分岐を残したい場合（編集履歴を比較したい等）はトグルで切替可能。
+
 **メッセージ本文のフォーマット（追補 v1.1）:**
 
 Claude.ai の新エクスポート形式では `chat_messages[].content` が配列で、各要素に `type` がある:

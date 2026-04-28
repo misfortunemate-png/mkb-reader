@@ -24,6 +24,9 @@ export default function ChatImporter({
   const [selected, setSelected] = useState(new Set());
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  // 何を: ツリー構造の扱いを切替
+  // なぜ: 既定は active（編集後の最終分岐のみ）。デバッグ等で全分岐見たい場合は all
+  const [branchMode, setBranchMode] = useState('active');
 
   // ───── ファイル選択 ─────
   function handlePickClick() {
@@ -80,7 +83,7 @@ export default function ChatImporter({
       if (targets.length === 1) {
         // 1 つだけ → ビューアで開く（mkb ZIP として渡す）
         const conv = targets[0];
-        const mkb = conversationToMkbData(conv);
+        const mkb = conversationToMkbData(conv, { branch: branchMode });
         const ab = await mkbDataToZipBuffer(mkb);
         const blob = new Blob([ab], { type: 'application/zip' });
         const file = new File([blob], `${mkb.metadata.title}.mkb`, { type: 'application/zip' });
@@ -88,7 +91,7 @@ export default function ChatImporter({
       } else {
         // 複数 → 全部本棚保存
         for (const conv of targets) {
-          const entry = await conversationToBookEntry(conv);
+          const entry = await conversationToBookEntry(conv, { branch: branchMode });
           await saveBook(entry);
         }
         alert(`${targets.length} 件の会話を本棚に保存しました`);
@@ -146,6 +149,20 @@ export default function ChatImporter({
             <span>{selectedCount} / {total} 選択中</span>
             <button type="button" className="settings-btn" onClick={selectAll}>すべて選択</button>
             <button type="button" className="settings-btn" onClick={selectNone}>選択解除</button>
+            <div className="toggle" style={{ marginLeft: 'auto' }}>
+              <button
+                type="button"
+                className={branchMode === 'active' ? 'active' : ''}
+                onClick={() => setBranchMode('active')}
+                title="編集後の最終分岐のみ取り込む"
+              >最終分岐のみ</button>
+              <button
+                type="button"
+                className={branchMode === 'all' ? 'active' : ''}
+                onClick={() => setBranchMode('all')}
+                title="編集前後を含めて全メッセージ取り込む"
+              >全分岐</button>
+            </div>
             <button
               type="button"
               className="settings-btn active"

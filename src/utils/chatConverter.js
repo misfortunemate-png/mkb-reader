@@ -137,11 +137,76 @@ function titleOf(conv) {
   return `Untitled-${String(conv.uuid).slice(0, 8)}`;
 }
 
+// 何を: 会話のツリー構造から「現在表示されている分岐」だけを抽出する
+// なぜ: Claude.ai は編集・再生成で枝を作り、古い枝も chat_messages[] に残す。
+//   そのまま並べると編集前後の両方が出てしまうので、active leaf からルートまでを
+//   parent_message_uuid を辿って復元し、その経路上のメッセージだけ返す。
+//
+// 戦略:
+//   1. conversation.current_leaf_message_uuid があればそれを葉として採用
+//   2. 無ければ「他から親として参照されていない（葉である）うち最後のもの」を葉と推定
+//   3. parent_message_uuid を辿りながらルートに向けて回収。途中でループや欠損があれば
+//      残った部分はフォールバックで全件返す（情報を失わないことを優先）
+function selectActiveBranch(messages, leafHint) {
+  if (!Array.isArray(messages) || messages.length === 0) return [];
+  // uuid → message
+  const byId = new Map();
+  for (const m of messages) {
+    const id = m.uuid || m.id;
+    if (id) byId.set(String(id), m);
+  }
+  // 各メッセージが持つ親 uuid（フィールド名の揺れに寛容に）
+  const parentOf = (m) => m?.parent_message_uuid || m?.parent_uuid || m?.parent || null;
+  // 「親として参照されている uuid 集合」を作って、参照されていない＝葉候補を見つける
+  const referencedAsParent = new Set();
+  for (const m of messages) {
+    const p = parentOf(m);
+    if (p) referencedAsParent.add(String(p));
+  }
+  // 葉候補
+  let leafId = leafHint && byId.has(String(leafHint)) ? String(leafHint) : null;
+  if (!leafId) {
+    // 後方から走査して最初に見つかった「葉」を採用
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const id = messages[i].uuid || messages[i].id;
+      if (id && !referencedAsParent.has(String(id))) {
+        leafId = String(id);
+        break;
+      }
+    }
+  }
+  if (!leafId) return messages; // ツリー判定不能 → 全件返す（フォールバック）
+  // leaf → root の順に集めて、最後に reverse
+  const path = [];
+  const visited = new Set();
+  let cur = byId.get(leafId);
+  while (cur) {
+    const id = String(cur.uuid || cur.id || '');
+    if (!id || visited.has(id)) break;
+    visited.add(id);
+    path.push(cur);
+    const pid = parentOf(cur);
+    if (!pid) break;
+    cur = byId.get(String(pid)) || null;
+  }
+  if (path.length === 0) return messages;
+  return path.reverse();
+}
+
 // 何を: 1 会話 → MkbData（既存の MkbData 構造に合わせる）
 // なぜ: ビューアは MkbData を描画する前提なので、変換結果も同じ形にする
-export function conversationToMkbData(conv) {
+//
+// options:
+//   - branch: 'active' | 'all' (default 'active')
+//     'active' → 編集後の最終分岐のみ（current_leaf_message_uuid を辿る）
+//     'all'    → 全メッセージ（旧分岐も含む。デバッグ用途）
+export function conversationToMkbData(conv, options = {}) {
+  const branchMode = options.branch || 'active';
   const title = titleOf(conv);
-  const md = `# ${title}\n\n${messagesToMd(conv.chat_messages || [])}`;
+  const all = conv.chat_messages || [];
+  const leafHint = conv.current_leaf_message_uuid || conv.current_leaf || conv.leaf_message_uuid || null;
+  const messages = branchMode === 'all' ? all : selectActiveBranch(all, leafHint);
+  const md = `# ${title}\n\n${messagesToMd(messages)}`;
   return {
     metadata: {
       title,
@@ -193,8 +258,8 @@ export async function mkbDataToZipBuffer(mkb) {
 
 // 何を: 1 会話 → BookEntry（本棚一括保存用）
 // なぜ: ChatImporter の「複数選択 → 一括保存」で使う
-export async function conversationToBookEntry(conv) {
-  const mkb = conversationToMkbData(conv);
+export async function conversationToBookEntry(conv, options = {}) {
+  const mkb = conversationToMkbData(conv, options);
   const ab = await mkbDataToZipBuffer(mkb);
   return {
     id: crypto.randomUUID(),

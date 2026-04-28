@@ -92,6 +92,43 @@
     ]
   },
   {
+    "uuid": "55555555-aaaa-bbbb-cccc-000000000005",
+    "name": "編集あり: 質問を言い換えた会話",
+    "created_at": "2026-04-29T11:00:00.000Z",
+    "model": "claude-opus-4-7",
+    "current_leaf_message_uuid": "msg-leaf-final",
+    "chat_messages": [
+      {
+        "uuid": "msg-root-q1",
+        "parent_message_uuid": null,
+        "sender": "human",
+        "text": "ねえ、コーヒーって何が美味しいの？",
+        "created_at": "2026-04-29T11:00:00.000Z"
+      },
+      {
+        "uuid": "msg-old-a1",
+        "parent_message_uuid": "msg-root-q1",
+        "sender": "assistant",
+        "text": "（旧分岐の応答 - これは編集後の取り込みでは出ないはず）コーヒーは色々な要素が美味しさに関わります。豆の種類、焙煎、抽出方法...",
+        "created_at": "2026-04-29T11:00:30.000Z"
+      },
+      {
+        "uuid": "msg-edited-q1",
+        "parent_message_uuid": "msg-root-q1",
+        "sender": "human",
+        "text": "ねえ、なぜコーヒーは人を惹きつけるの？",
+        "created_at": "2026-04-29T11:01:00.000Z"
+      },
+      {
+        "uuid": "msg-leaf-final",
+        "parent_message_uuid": "msg-edited-q1",
+        "sender": "assistant",
+        "text": "（最終分岐の応答 - これだけが残るはず）惹きつけるのは香りと温度です。香りは記憶と結びつき、温度は身体の輪郭を確かめさせる。だから人は朝にコーヒーを淹れ、その湯気の前で一度立ち止まる。",
+        "created_at": "2026-04-29T11:01:30.000Z"
+      }
+    ]
+  },
+  {
     "uuid": "33333333-aaaa-bbbb-cccc-000000000003",
     "name": "短い雑談",
     "created_at": "2026-04-28T22:00:00.000Z",
