@@ -10,6 +10,8 @@ import ChapterNav from './components/ChapterNav.jsx';
 import Paginator from './components/Paginator.jsx';
 import Bookshelf from './components/Bookshelf.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
+import HtmlRenderer from './components/HtmlRenderer.jsx';
+import JsonRenderer from './components/JsonRenderer.jsx';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
 import { useSettings } from './hooks/useSettings.js';
@@ -22,7 +24,7 @@ export default function App() {
   const [activeEntry, setActiveEntry] = useState(null);
   const [lastFile, setLastFile] = useState(null);
 
-  const { mkb, error, loading, loadFile, loadFromUrl } = useMkbLoader();
+  const { content, mkb, error, loading, loadFile, loadFromUrl } = useMkbLoader();
   const {
     books,
     loading: shelfLoading,
@@ -39,15 +41,20 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // mkb 読込時、最初のチャプターを選択しビューア画面へ遷移
+  // 何を: コンテンツが読み込まれたらビューア画面へ遷移
+  // なぜ: ViewerContent 抽象化（Phase 3a §10〜§11）— mkb 以外も view='reader' で扱う
   useEffect(() => {
-    if (mkb && mkb.chapters.length) {
-      setCurrentId(mkb.chapters[0].id);
-      setView('reader');
+    if (!content) {
+      setCurrentId(null);
+      return;
+    }
+    if (content.type === 'mkb' && content.data?.chapters?.length) {
+      setCurrentId(content.data.chapters[0].id);
     } else {
       setCurrentId(null);
     }
-  }, [mkb]);
+    setView('reader');
+  }, [content]);
 
   const currentChapter = useMemo(() => {
     if (!mkb) return null;
@@ -129,7 +136,7 @@ export default function App() {
   }
 
   // ───── ビューア画面 ─────
-  if (!mkb) {
+  if (!content) {
     return (
       <FileLoader
         onSelect={loadFileAndRemember}
@@ -140,8 +147,13 @@ export default function App() {
     );
   }
 
-  const showNav = mkb.chapters.length > 1;
+  const isMkb = content.type === 'mkb';
+  const showNav = isMkb && mkb && mkb.chapters.length > 1;
   const isSaved = !!activeEntry;
+  // タイトル: mkb なら metadata.title、その他はファイル名
+  const headerTitle = isMkb
+    ? mkb?.metadata?.title
+    : (content.name || (content.type === 'html' ? 'HTML' : content.type === 'json' ? 'JSON' : ''));
 
   return (
     <div className={showNav ? 'with-sidebar' : ''}>
@@ -167,8 +179,8 @@ export default function App() {
           </button>
         )}
         <div className="title">
-          {mkb.metadata?.title}
-          {currentChapter && currentChapter.id !== 'index' && (
+          {headerTitle}
+          {isMkb && currentChapter && currentChapter.id !== 'index' && (
             <span className="text-[var(--color-text-secondary)] font-normal">
               {' '}/ {currentChapter.title}
             </span>
@@ -203,14 +215,26 @@ export default function App() {
           ⚙
         </button>
       </header>
-      <Paginator
-        chapter={currentChapter}
-        chapters={mkb.chapters}
-        onWikiLinkClick={handleWikiLinkClick}
-        mode={settings.mode}
-        swipeDirection={settings.swipeDirection}
-        hrStyle={settings.hrStyle}
-      />
+
+      {/* 何を: コンテンツ型に応じてレンダラーを切替
+          なぜ: 仕様書 §10 — HTML/JSON はスクロール固定の専用ビュー */}
+      {isMkb && currentChapter && (
+        <Paginator
+          chapter={currentChapter}
+          chapters={mkb.chapters}
+          onWikiLinkClick={handleWikiLinkClick}
+          mode={settings.mode}
+          swipeDirection={settings.swipeDirection}
+          hrStyle={settings.hrStyle}
+        />
+      )}
+      {content.type === 'html' && (
+        <HtmlRenderer content={content.content} name={content.name} />
+      )}
+      {content.type === 'json' && (
+        <JsonRenderer content={content.content} name={content.name} />
+      )}
+
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

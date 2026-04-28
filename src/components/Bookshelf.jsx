@@ -82,7 +82,7 @@ export default function Bookshelf({
         <input
           ref={inputRef}
           type="file"
-          accept=".mkb,.md,.markdown,.txt"
+          accept=".mkb,.md,.markdown,.txt,.html,.htm,.json"
           onChange={handlePickChange}
           style={{ display: 'none' }}
         />

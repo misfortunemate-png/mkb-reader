@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>test.html</title>
+</head>
+<body>
+<h1>テスト用 HTML</h1>
+<p>これは mkb-reader の §10 HTML 表示テスト用ファイルです。</p>
+
+<h2>script の安全性確認</h2>
+<p>下の script は <strong>実行されてはいけません</strong>（sandbox で防がれているはず）。</p>
+<script>
+  document.body.style.background = 'red';
+  alert('XSS!!');
+</script>
+
+<h2>段落とリスト</h2>
+<p>段落は通常の文章として表示されます。日本語も <em>強調</em> も <code>コード</code> も使えます。</p>
+<ul>
+  <li>箇条書き 1</li>
+  <li>箇条書き 2</li>
+  <li>箇条書き 3</li>
+</ul>
+
+<h2>テーブル</h2>
+<table border="1" cellpadding="6">
+  <thead><tr><th>列A</th><th>列B</th></tr></thead>
+  <tbody>
+    <tr><td>セル1</td><td>セル2</td></tr>
+    <tr><td>セル3</td><td>セル4</td></tr>
+  </tbody>
+</table>
+
+<h2>引用</h2>
+<blockquote>引用は引用として、装飾なしで表示されます。</blockquote>
+
+<h2>リンク</h2>
+<p><a href="https://example.com" target="_blank">外部リンク（同一オリジン制約あり）</a></p>
+</body>
+</html>

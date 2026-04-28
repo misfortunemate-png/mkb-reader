@@ -30,7 +30,7 @@ export default function FileLoader({ onSelect, error, loading, onLoadSample }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".mkb,.md,.markdown,.txt"
+        accept=".mkb,.md,.markdown,.txt,.html,.htm,.json"
         onChange={handleChange}
         style={{ display: 'none' }}
       />
