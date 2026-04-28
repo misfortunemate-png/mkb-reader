@@ -130,15 +130,30 @@ export function useBookshelf() {
   };
 }
 
-// 何を: File / MkbData → BookEntry へ変換
-// なぜ: ビューア本体は File を扱うが、本棚は ArrayBuffer + メタデータで保存する
+// 何を: ファイル拡張子 → fileType を決める（拡張: §11）
+// なぜ: 本棚は ArrayBuffer + 拡張子情報で保存する。元ファイル名の拡張子も復元時に必要
+const TYPE_BY_EXT = {
+  mkb: 'mkb', zip: 'zip', cbz: 'cbz',
+  md: 'md', markdown: 'md', txt: 'txt',
+  html: 'html', htm: 'html', json: 'json',
+  jpg: 'jpg', jpeg: 'jpg', png: 'png', gif: 'gif', webp: 'webp', avif: 'avif',
+};
+const MIME_BY_TYPE = {
+  mkb: 'application/zip', zip: 'application/zip', cbz: 'application/zip',
+  md: 'text/markdown', txt: 'text/plain',
+  html: 'text/html', json: 'application/json',
+  jpg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
+};
+
+// 何を: File → BookEntry へ変換
+// なぜ: 仕様書 §8 — 開いたファイルを ArrayBuffer + メタデータで保存する。
+//       Phase 3a §11 で対応拡張子が増えたため fileType の判定を拡張
 export async function fileToBookEntry(file, mkbMetadata) {
-  const lower = (file.name || '').toLowerCase();
-  let fileType = 'md';
-  if (lower.endsWith('.mkb') || lower.endsWith('.zip')) fileType = 'mkb';
-  else if (lower.endsWith('.txt')) fileType = 'txt';
+  const name = file.name || 'untitled';
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  const fileType = TYPE_BY_EXT[ext] || 'md';
   const fileData = await file.arrayBuffer();
-  const baseTitle = (file.name || 'untitled').replace(/\.[^.]+$/, '');
+  const baseTitle = name.replace(/\.[^.]+$/, '');
   return {
     id: crypto.randomUUID(),
     title: mkbMetadata?.title || baseTitle,
@@ -147,17 +162,16 @@ export async function fileToBookEntry(file, mkbMetadata) {
     fileData,
     addedAt: Date.now(),
     lastOpenedAt: Date.now(),
+    // localSettings は Phase 3a §4.6 で予約フィールドとして追加
+    localSettings: undefined,
   };
 }
 
 // BookEntry → File（ビューアに渡すため）
 export function bookEntryToFile(entry) {
-  const ext = entry.fileType === 'mkb' ? '.mkb' : entry.fileType === 'txt' ? '.txt' : '.md';
-  const name = (entry.title || 'untitled').replace(/[\\/:*?"<>|]/g, '_') + ext;
-  const mime = entry.fileType === 'mkb'
-    ? 'application/zip'
-    : entry.fileType === 'txt'
-      ? 'text/plain'
-      : 'text/markdown';
+  const ext = entry.fileType || 'md';
+  const safeName = (entry.title || 'untitled').replace(/[\\/:*?"<>|]/g, '_');
+  const name = `${safeName}.${ext === 'jpg' ? 'jpg' : ext}`;
+  const mime = MIME_BY_TYPE[ext] || 'application/octet-stream';
   return new File([entry.fileData], name, { type: mime });
 }

@@ -31,8 +31,14 @@ export default function Bookshelf({
     inputRef.current?.click();
   }
   function handlePickChange(e) {
-    const f = e.target.files?.[0];
-    if (f) onPickFile(f);
+    // 何を: 複数選択時は配列で渡す（仕様書 §11 — 画像複数選択 → 画像ビューア）
+    // なぜ: useMkbLoader.loadFile が File[] / FileList を扱えるよう拡張済み
+    const files = e.target.files;
+    if (files && files.length > 1) {
+      onPickFile(Array.from(files));
+    } else if (files && files[0]) {
+      onPickFile(files[0]);
+    }
     e.target.value = '';
   }
 
@@ -82,7 +88,8 @@ export default function Bookshelf({
         <input
           ref={inputRef}
           type="file"
-          accept=".mkb,.md,.markdown,.txt,.html,.htm,.json"
+          accept=".mkb,.md,.markdown,.txt,.html,.htm,.json,.cbz,.zip,.jpg,.jpeg,.png,.gif,.webp,.avif"
+          multiple
           onChange={handlePickChange}
           style={{ display: 'none' }}
         />

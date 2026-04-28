@@ -12,6 +12,7 @@ import Bookshelf from './components/Bookshelf.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import HtmlRenderer from './components/HtmlRenderer.jsx';
 import JsonRenderer from './components/JsonRenderer.jsx';
+import ImageViewer from './components/ImageViewer.jsx';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
 import { useSettings } from './hooks/useSettings.js';
@@ -226,6 +227,7 @@ export default function App() {
           mode={settings.mode}
           swipeDirection={settings.swipeDirection}
           hrStyle={settings.hrStyle}
+          imageDisplayMode={settings.imageDisplayMode}
         />
       )}
       {content.type === 'html' && (
@@ -233,6 +235,9 @@ export default function App() {
       )}
       {content.type === 'json' && (
         <JsonRenderer content={content.content} name={content.name} />
+      )}
+      {content.type === 'images' && (
+        <ImageViewer images={content.images} swipeDirection={settings.swipeDirection} />
       )}
 
       <SettingsPanel

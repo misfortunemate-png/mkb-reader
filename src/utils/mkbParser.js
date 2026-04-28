@@ -61,6 +61,51 @@ export function rewriteAssetPaths(md, assetsMap) {
   });
 }
 
+// 何を: ZIP 内に MD があるかを軽く判定する
+// なぜ: 仕様書 §11 — index.md or pages/*.md があれば mkb、なければ画像のみ ZIP として扱う
+export function zipHasMarkdown(zip) {
+  if (!zip) return false;
+  if (zip.file(/^index\.md$/i)[0]) return true;
+  if (zip.file(/^pages\/[^/]+\.md$/i).length > 0) return true;
+  if (zip.file(/^[^/]+\.md$/i).length > 0) return true;
+  return false;
+}
+
+// 何を: ZIP 内の画像ファイルだけを Blob URL 化して並べる（自然順ソート）
+// なぜ: 仕様書 §11 — 画像のみ ZIP / CBZ を ImageViewer に渡すため
+const IMG_RE = /\.(jpe?g|png|gif|webp|avif|bmp)$/i;
+function naturalSort(a, b) {
+  return String(a.name).localeCompare(String(b.name), 'en', { numeric: true, sensitivity: 'base' });
+}
+const IMG_MIME = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+  gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp',
+};
+function mimeOf(name) {
+  const ext = name.split('.').pop()?.toLowerCase();
+  return IMG_MIME[ext] || 'application/octet-stream';
+}
+
+export async function parseImagesZip(zip, fallbackTitle = 'images') {
+  const entries = [];
+  zip.forEach((relPath, file) => {
+    if (file.dir) return;
+    if (!IMG_RE.test(relPath)) return;
+    entries.push(file);
+  });
+  entries.sort(naturalSort);
+  if (entries.length === 0) {
+    throw new Error('画像ファイルが見つかりません');
+  }
+  const images = [];
+  for (const entry of entries) {
+    const ab = await entry.async('arraybuffer');
+    const blob = new Blob([ab], { type: mimeOf(entry.name) });
+    images.push({ name: entry.name, url: URL.createObjectURL(blob) });
+  }
+  return { metadata: { title: fallbackTitle }, images };
+}
+
 // JSZip オブジェクトから MkbData を組み立てる
 export async function parseMkbZip(zip, fallbackTitle = 'Untitled') {
   // 1) markbook.yaml（任意）

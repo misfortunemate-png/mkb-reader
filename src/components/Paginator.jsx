@@ -12,6 +12,7 @@ export default function Paginator({
   mode,
   swipeDirection = 'horizontal',
   hrStyle = 'page-break',
+  imageDisplayMode = 'balance',
 }) {
   const enabled = mode === 'page';
   const frameRef = useRef(null);
@@ -114,6 +115,7 @@ export default function Paginator({
             chapters={chapters}
             onWikiLinkClick={onWikiLinkClick}
             hrStyle={hrStyle}
+            imageDisplayMode={imageDisplayMode}
           />
         </div>
       </div>

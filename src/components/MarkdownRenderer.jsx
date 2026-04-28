@@ -1,18 +1,67 @@
 // 何を: Markdown を react-markdown で描画する
 // なぜ: 仕様書 §2 - GFM + wikilinks + 画像Blob URL対応
+//       Phase 3a §11 - MD 内画像の表示モード自動判定（インライン/ブロック/フルページ）
+//       + 画像タップでフルスクリーンモーダル
 
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkWikiLink from 'remark-wiki-link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { IMAGE_DISPLAY_THRESHOLDS } from '../hooks/useSettings.js';
 
-export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick, hrStyle = 'page-break' }) {
+// 画像のサイズ比率からクラスを決める
+// 何を: 長辺 / viewportWidth と imageDisplayMode に応じて 'img-inline'|'img-block'|'img-fullpage' を返す
+// なぜ: 仕様書 §11 表 — 画像のサイズで表示扱いを変えて、テキストとの一体感を保つ
+function classifyImage(naturalW, naturalH, viewportW, mode) {
+  const t = IMAGE_DISPLAY_THRESHOLDS[mode] || IMAGE_DISPLAY_THRESHOLDS.balance;
+  const longSide = Math.max(naturalW, naturalH);
+  const ratio = longSide / Math.max(1, viewportW);
+  if (ratio <= t.inline) return 'img-inline';
+  if (ratio >= t.fullpage) return 'img-fullpage';
+  return 'img-block';
+}
+
+// onLoad で画像クラスを差し替える component
+function MdImage({ src, alt, imageDisplayMode = 'balance', onClick }) {
+  const [klass, setKlass] = useState('img-block'); // 仮（読み込み前のレイアウトずれ抑制）
+  function onLoad(e) {
+    const img = e.currentTarget;
+    const vw = window.innerWidth || document.documentElement.clientWidth || 800;
+    setKlass(classifyImage(img.naturalWidth, img.naturalHeight, vw, imageDisplayMode));
+  }
+  return (
+    <img
+      src={src}
+      alt={alt || ''}
+      loading="lazy"
+      className={klass}
+      onLoad={onLoad}
+      onClick={(e) => { e.stopPropagation(); onClick?.({ src, alt }); }}
+    />
+  );
+}
+
+// 全画面拡大モーダル（仕様書 §11 — 画像タップ拡大）
+// 何を: 100vw × 100vh の暗背景に object-fit: contain で大きく表示
+// なぜ: 挿絵を見たい時に元サイズで確認できる選択肢が必要。ピンチズームはブラウザ既定に任せる
+function ImageModal({ image, onClose }) {
+  if (!image) return null;
+  return (
+    <div className="image-modal" onClick={onClose} role="dialog" aria-modal="true">
+      <img src={image.src} alt={image.alt || ''} />
+    </div>
+  );
+}
+
+export default function MarkdownRenderer({
+  chapter, chapters, onWikiLinkClick, hrStyle = 'page-break', imageDisplayMode = 'balance',
+}) {
+  const [modal, setModal] = useState(null);
+
   // 何を: wikilinks プラグインに「既存リンク一覧」と「リンク先解決ルール」を渡す
-  // なぜ: remark-wiki-link は permalinks[] に含まれないものを class="new" として扱うため、
-  //       pageResolver だけでは全リンクが broken 扱いになる
   const { permalinks, pageResolver } = useMemo(() => {
     const list = (chapters || []).map((c) => c.id);
-    const idMap = new Map(); // 大文字小文字を無視するため lowerKey → id
+    const idMap = new Map();
     (chapters || []).forEach((c) => {
       idMap.set(c.id.toLowerCase(), c.id);
       if (c.title) idMap.set(c.title.toLowerCase(), c.id);
@@ -28,7 +77,6 @@ export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick, h
 
   const hrefTemplate = (permalink) => `#chapter:${permalink}`;
 
-  // .txt（plainText）はパースせず <pre> で表示
   if (chapter?.plainText) {
     return (
       <div className="markdown">
@@ -46,17 +94,12 @@ export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick, h
           remarkGfm,
           [remarkWikiLink, { permalinks, pageResolver, hrefTemplate, aliasDivider: '|' }],
         ]}
-        // 何を: blob: と # を許可する urlTransform を渡す
-        // なぜ: react-markdown のデフォルトは XSS 対策で blob: URL を空文字に置換するため、
-        //       mkb の assets を Blob URL 化しても <img src> が空になり画像が表示されない（§4 修正）
         urlTransform={(url) => {
           if (typeof url !== 'string') return url;
           if (url.startsWith('blob:') || url.startsWith('#') || url.startsWith('data:image/')) return url;
-          // それ以外はデフォルト挙動（http/https/相対）
           return url;
         }}
         components={{
-          // wikilink: hash 形式の href をクリックハンドラへ橋渡し
           a({ href, children, className, ...rest }) {
             if (typeof href === 'string' && href.startsWith('#chapter:')) {
               const target = decodeURIComponent(href.slice('#chapter:'.length));
@@ -75,7 +118,6 @@ export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick, h
                 </a>
               );
             }
-            // 通常リンクは新規タブで開く（mkb 内のセキュリティ配慮）
             const isExternal = typeof href === 'string' && /^https?:/i.test(href);
             return (
               <a
@@ -88,12 +130,17 @@ export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick, h
               </a>
             );
           },
-          // 画像: alt/src をそのまま使う（パスは parser で Blob URL に置換済み）
+          // §11 MD 内画像の表示モード自動判定 + タップで拡大
           img({ src, alt }) {
-            return <img src={src} alt={alt || ''} loading="lazy" />;
+            return (
+              <MdImage
+                src={src}
+                alt={alt}
+                imageDisplayMode={imageDisplayMode}
+                onClick={setModal}
+              />
+            );
           },
-          // 何を: <hr> に data-style 属性を付与し、CSS 側で 4 種の表示方式を切替
-          // なぜ: 仕様書 §7 — 改ページ／区切り線／余白／装飾の4方式
           hr() {
             return <hr data-style={hrStyle} />;
           },
@@ -101,6 +148,7 @@ export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick, h
       >
         {chapter?.content || ''}
       </ReactMarkdown>
+      <ImageModal image={modal} onClose={() => setModal(null)} />
     </div>
   );
 }

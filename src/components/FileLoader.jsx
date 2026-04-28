@@ -7,9 +7,13 @@ export default function FileLoader({ onSelect, error, loading, onLoadSample }) {
   const inputRef = useRef(null);
 
   function handleChange(e) {
-    const file = e.target.files && e.target.files[0];
-    if (file) onSelect(file);
-    // 同じファイルを再選択した場合に change が再発火するよう reset
+    // 何を: 複数選択時は配列で渡す（仕様書 §11 — 画像複数選択）
+    const files = e.target.files;
+    if (files && files.length > 1) {
+      onSelect(Array.from(files));
+    } else if (files && files[0]) {
+      onSelect(files[0]);
+    }
     e.target.value = '';
   }
 
@@ -30,7 +34,8 @@ export default function FileLoader({ onSelect, error, loading, onLoadSample }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".mkb,.md,.markdown,.txt,.html,.htm,.json"
+        accept=".mkb,.md,.markdown,.txt,.html,.htm,.json,.cbz,.zip,.jpg,.jpeg,.png,.gif,.webp,.avif"
+        multiple
         onChange={handleChange}
         style={{ display: 'none' }}
       />

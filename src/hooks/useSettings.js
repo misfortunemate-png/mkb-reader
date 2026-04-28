@@ -43,6 +43,16 @@ export const DEFAULTS = {
   swipeDirection: 'horizontal', // 'horizontal' | 'vertical'
   hrStyle: 'page-break',        // 'page-break' | 'line' | 'space' | 'ornament'
   mode: 'page',        // 'page' | 'scroll' （Phase 1 で先行実装した key を統合）
+  // §11 MD 内画像の表示モード判定プリセット
+  imageDisplayMode: 'balance',  // 'text-first' | 'balance' | 'image-first'
+};
+
+// §11: 画像表示プリセットの閾値（仕様書 §11 表）
+// 長辺 / viewportWidth がこの値以下: inline / 以上: fullpage
+export const IMAGE_DISPLAY_THRESHOLDS = {
+  'text-first': { inline: 0.15, fullpage: 0.90 },
+  'balance':    { inline: 0.25, fullpage: 0.75 },
+  'image-first':{ inline: 0.10, fullpage: 0.50 },
 };
 
 // プリセット（仕様書 §7）

@@ -825,3 +825,84 @@ button {
 .json-null { color: var(--color-text-secondary); font-style: italic; }
 .json-empty { color: var(--color-text-secondary); }
 .json-summary { color: var(--color-text-secondary); font-style: italic; }
+
+/* ─────────────────────────────────────────────────────────
+   §11 画像ビューア（ImageViewer.jsx）
+   ───────────────────────────────────────────────────────── */
+.image-frame {
+  position: relative;
+  width: 100%;
+  height: calc(100dvh - var(--header-h));
+  background: var(--color-bg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: pan-y;
+  user-select: none;
+}
+.image-page {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  transform-origin: center center;
+  transition: transform 100ms ease-out;
+  -webkit-user-drag: none;
+}
+.image-empty {
+  height: calc(100dvh - var(--header-h));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+}
+
+/* §11 MD 内画像の表示モード */
+.markdown img.img-inline {
+  display: inline;
+  vertical-align: middle;
+  max-height: 1.6em;
+  margin: 0 0.2em;
+  cursor: zoom-in;
+}
+.markdown img.img-block {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1em auto;
+  cursor: zoom-in;
+}
+.markdown img.img-fullpage {
+  /* 何を: 1ページ全面に画像を表示
+     なぜ: 仕様書 §11 — 大きな画像はページネーションで強制改ページしフィット表示 */
+  display: block;
+  width: 100%;
+  height: calc(100dvh - var(--header-h) - var(--indicator-h) - 2em);
+  object-fit: contain;
+  margin: 0 auto;
+  break-before: column;
+  page-break-before: always;
+  break-inside: avoid;
+  cursor: zoom-in;
+}
+
+/* §11 タップ拡大モーダル */
+.image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: zoom-out;
+  touch-action: pinch-zoom;
+}
+.image-modal img {
+  max-width: 100vw;
+  max-height: 100vh;
+  object-fit: contain;
+  -webkit-user-drag: none;
+}

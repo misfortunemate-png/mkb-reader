@@ -13,7 +13,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import JSZip from 'jszip';
-import { parseMkbZip, buildSingleMdMkb, buildTxtMkb, revokeMkbAssets } from '../utils/mkbParser.js';
+import {
+  parseMkbZip, parseImagesZip, zipHasMarkdown,
+  buildSingleMdMkb, buildTxtMkb, revokeMkbAssets,
+} from '../utils/mkbParser.js';
+
+// 画像拡張子判定（§11 単体・複数画像）
+const SINGLE_IMG_RE = /\.(jpe?g|png|gif|webp|avif|bmp)$/i;
+const IMG_MIME = {
+  jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+  gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp',
+};
 
 // 何を: 旧 mkb 用 Blob URL 解放（型問わず統一して呼べるように）
 // なぜ: ViewerContent 切替時のメモリリーク防止
@@ -35,19 +45,69 @@ export function useMkbLoader() {
 
   useEffect(() => () => revokeContent(prevRef.current), []);
 
-  const loadFile = useCallback(async (file) => {
-    if (!file) return;
+  // 何を: File または File[] を受け取る
+  // なぜ: 仕様書 §11 — 画像複数選択（input multiple）対応
+  const loadFile = useCallback(async (fileOrFiles) => {
+    if (!fileOrFiles) return;
+    // 配列が来た場合: 全部画像なら ImageViewer、それ以外は先頭ファイルだけ採用
+    if (Array.isArray(fileOrFiles) || fileOrFiles instanceof FileList) {
+      const list = Array.from(fileOrFiles);
+      if (list.length === 0) return;
+      const allImg = list.every((f) => SINGLE_IMG_RE.test(f.name || ''));
+      if (allImg && list.length >= 2) {
+        setError(null); setLoading(true);
+        try {
+          // 自然順
+          list.sort((a, b) => String(a.name).localeCompare(String(b.name), 'en', { numeric: true }));
+          const images = list.map((f) => {
+            const ext = (f.name.split('.').pop() || '').toLowerCase();
+            const blob = f.type ? f : new Blob([f], { type: IMG_MIME[ext] || 'application/octet-stream' });
+            return { name: f.name, url: URL.createObjectURL(blob) };
+          });
+          const result = {
+            type: 'images',
+            images,
+            name: `${list.length} 枚の画像`,
+          };
+          revokeContent(prevRef.current);
+          prevRef.current = result;
+          setContent(result);
+        } finally { setLoading(false); }
+        return;
+      }
+      // 複数ファイルだが画像じゃない or 1枚だけ → 先頭ファイルだけ通常処理へ
+      return loadFile(list[0]);
+    }
+    const file = fileOrFiles;
     setError(null);
     setLoading(true);
     try {
       const name = file.name || '';
       const lower = name.toLowerCase();
       let result; // ViewerContent
-      if (lower.endsWith('.mkb') || lower.endsWith('.zip')) {
+      if (lower.endsWith('.cbz')) {
+        // §11: CBZ は無条件で画像 ZIP として扱う
         const buf = await file.arrayBuffer();
         const zip = await JSZip.loadAsync(buf);
-        const mkb = await parseMkbZip(zip, name.replace(/\.[^.]+$/, ''));
-        result = { type: 'mkb', data: mkb };
+        const data = await parseImagesZip(zip, name.replace(/\.[^.]+$/, ''));
+        result = { type: 'images', images: data.images, name };
+      } else if (lower.endsWith('.mkb') || lower.endsWith('.zip')) {
+        // §11: ZIP は中身判定。MD があれば mkb、なければ画像 ZIP
+        const buf = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(buf);
+        if (zipHasMarkdown(zip)) {
+          const mkb = await parseMkbZip(zip, name.replace(/\.[^.]+$/, ''));
+          result = { type: 'mkb', data: mkb };
+        } else {
+          const data = await parseImagesZip(zip, name.replace(/\.[^.]+$/, ''));
+          result = { type: 'images', images: data.images, name };
+        }
+      } else if (SINGLE_IMG_RE.test(lower)) {
+        // §11: 単体画像
+        const ext = (lower.split('.').pop() || '').toLowerCase();
+        const blob = file.type ? file : new Blob([file], { type: IMG_MIME[ext] || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        result = { type: 'images', images: [{ name, url }], name };
       } else if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
         const text = await file.text();
         result = { type: 'mkb', data: buildSingleMdMkb(text, name) };
@@ -63,7 +123,7 @@ export function useMkbLoader() {
         const text = await file.text();
         result = { type: 'json', content: text, name };
       } else {
-        throw new Error('対応していない拡張子です（.mkb / .md / .txt / .html / .json）');
+        throw new Error('対応していない拡張子です（.mkb / .md / .txt / .html / .json / .cbz / 画像）');
       }
       revokeContent(prevRef.current);
       prevRef.current = result;
