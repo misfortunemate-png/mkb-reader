@@ -86,19 +86,28 @@ export default function Paginator({
     };
   }, [enabled, next, prev, swipeDirection]);
 
+  // 何を: フレーム全体のクリックをハンドルし、リンク/ボタン上は素通し、
+  //       それ以外で左右半分のタップ→前後ページ送り
+  // なぜ: タップゾーンを overlay div で重ねると wikilinks 等のクリックを横取りし、
+  //       チャプター切替が動かなくなる（仕様書 §3 の wikilinks クリック必須）
+  function handleFrameClick(e) {
+    if (!enabled) return;
+    // インタラクティブ要素の上ならページ送りしない
+    const interactive = e.target.closest('a, button, input, textarea, select, label, [role="button"]');
+    if (interactive) return;
+    const rect = frameRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const x = e.clientX - rect.left;
+    if (x < rect.width / 2) prev(); else next();
+  }
+
   return (
     <>
       <div
         ref={frameRef}
         className={`paginator-frame ${enabled ? '' : 'scroll-mode'}`}
+        onClick={handleFrameClick}
       >
-        {enabled && (
-          <>
-            {/* タップ領域: 左半分→前ページ / 右半分→次ページ */}
-            <div className="tap-zone left" onClick={prev} aria-label="前のページ" />
-            <div className="tap-zone right" onClick={next} aria-label="次のページ" />
-          </>
-        )}
         <div ref={trackRef} className="paginator-track">
           <MarkdownRenderer
             chapter={chapter}

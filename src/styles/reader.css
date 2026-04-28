@@ -311,16 +311,7 @@ button {
   transform: none !important;
 }
 
-/* タップ領域（左右半分）: 視覚化はせず、領域だけ確保 */
-.tap-zone {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
-  z-index: 5;
-}
-.tap-zone.left { left: 0; }
-.tap-zone.right { right: 0; }
+/* タップ領域は廃止: frame の onClick でリンク以外を左右半分判定するため */
 
 /* ページインジケーター */
 .page-indicator {
