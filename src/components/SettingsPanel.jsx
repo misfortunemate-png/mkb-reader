@@ -1,8 +1,13 @@
-// 何を: 設定ボトムシート（§5 フォント / §6 テーマ / §7 カスタマイズ）
-// なぜ: 仕様書 Phase 2 §7 — 「設定変更がリアルタイム反映」「背景としてビューア本文が見える」
-//       useSettings フックの settings/update/applyPreset/activePreset を受け取って描画する純UI
+// 何を: 設定ボトムシート（仕様書 Phase 3a §4.5 — プリセット主導のセクション分割）
+// なぜ: 数値入力を主 UI から退避させ、まず「ゆったり/標準/コンパクト」など
+//       2〜4 択のボタンで読書体験を選ぶ。スライダーは「詳細設定」として折りたたむ。
+//
+// 仕様書 §4.6 の二層構造に対応:
+//   - ヘッダーに「すべての本 / この本」のスコープ切替
+//   - ローカル設定で上書きされた項目はドット表示
+//   - 各項目に「リセット」アイコン（ローカル時のみ表示）
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FONTS, THEMES, PRESETS } from '../hooks/useSettings.js';
 
 const HR_STYLES = [
@@ -11,6 +16,37 @@ const HR_STYLES = [
   { key: 'space', label: '余白' },
   { key: 'ornament', label: '装飾' },
 ];
+const IMG_MODES = [
+  { key: 'text-first', label: '文章優先' },
+  { key: 'balance', label: 'バランス' },
+  { key: 'image-first', label: '画像優先' },
+];
+
+function Section({ title, children, defaultOpen = true, overridden = false, onReset }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className={`settings-section ${overridden ? 'overridden' : ''}`}>
+      <header className="section-header">
+        <button
+          type="button"
+          className="section-toggle"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+        >
+          <span className="section-caret">{open ? '▾' : '▸'}</span>
+          <h3>{title}</h3>
+          {overridden && <span className="dot" title="この本の設定で上書き中" />}
+        </button>
+        {onReset && overridden && (
+          <button type="button" className="reset-btn" onClick={onReset} title="グローバルに戻す">
+            リセット
+          </button>
+        )}
+      </header>
+      {open && <div className="section-body">{children}</div>}
+    </section>
+  );
+}
 
 export default function SettingsPanel({
   open,
@@ -19,14 +55,28 @@ export default function SettingsPanel({
   update,
   applyPreset,
   activePreset,
+  // 二層構造（仕様書 §4.6）
+  scope,
+  setScope,
+  hasLocal,
+  overriddenKeys,
+  resetLocalKey,
+  canEditLocal,        // bookId が無い時は「この本」タブを無効化
 }) {
-  // モバイルでシートが開いている間は body スクロールロック
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = prev; };
   }, [open]);
+
+  const isOverridden = (k) => overriddenKeys && overriddenKeys.has(k);
+  const onResetKey = (k) => () => resetLocalKey?.(k);
+  // 「文字」セクションは複数キーをまとめて扱う
+  const charsOverridden = ['fontSize', 'lineHeight', 'contentPadding'].some(isOverridden);
+
+  // 「文字」の詳細スライダー折りたたみ
+  const [charsDetailOpen, setCharsDetailOpen] = useState(false);
 
   return (
     <>
@@ -43,9 +93,30 @@ export default function SettingsPanel({
       >
         <div className="settings-handle" onClick={onClose} />
 
-        {/* §7 プリセット */}
-        <section className="settings-section">
-          <h3>プリセット</h3>
+        {/* スコープ切替 */}
+        <div className="scope-toggle">
+          <button
+            type="button"
+            className={scope === 'global' ? 'active' : ''}
+            onClick={() => setScope?.('global')}
+          >すべての本</button>
+          <button
+            type="button"
+            className={scope === 'local' ? 'active' : ''}
+            onClick={() => canEditLocal && setScope?.('local')}
+            disabled={!canEditLocal}
+            title={canEditLocal ? '' : '本棚に保存されている本のみ個別設定が可能'}
+          >この本{hasLocal ? ' ●' : ''}</button>
+        </div>
+
+        {/* §7-プリセット → 「文字」セクションへ統合 */}
+        <Section
+          title="文字"
+          overridden={charsOverridden}
+          onReset={() => {
+            ['fontSize','lineHeight','contentPadding'].forEach((k) => isOverridden(k) && resetLocalKey?.(k));
+          }}
+        >
           <div className="settings-row">
             {Object.keys(PRESETS).map((k) => (
               <button
@@ -58,17 +129,52 @@ export default function SettingsPanel({
               </button>
             ))}
           </div>
-        </section>
+          <button
+            type="button"
+            className="details-toggle"
+            onClick={() => setCharsDetailOpen((v) => !v)}
+          >
+            {charsDetailOpen ? '▾ 詳細を閉じる' : '▸ 詳細'}
+          </button>
+          {charsDetailOpen && (
+            <>
+              <div className="slider-row">
+                <span className="slider-value">14px</span>
+                <input
+                  type="range" min="14" max="28" step="1"
+                  value={settings.fontSize}
+                  onChange={(e) => update({ fontSize: Number(e.target.value) })}
+                />
+                <span className="slider-value">{settings.fontSize}px</span>
+              </div>
+              <div className="slider-row">
+                <span className="slider-value">1.4</span>
+                <input
+                  type="range" min="1.4" max="2.4" step="0.1"
+                  value={settings.lineHeight}
+                  onChange={(e) => update({ lineHeight: Number(e.target.value) })}
+                />
+                <span className="slider-value">{settings.lineHeight.toFixed(1)}</span>
+              </div>
+              <div className="slider-row">
+                <span className="slider-value">0.5</span>
+                <input
+                  type="range" min="0.5" max="3.0" step="0.25"
+                  value={settings.contentPadding}
+                  onChange={(e) => update({ contentPadding: Number(e.target.value) })}
+                />
+                <span className="slider-value">{settings.contentPadding.toFixed(2)}rem</span>
+              </div>
+            </>
+          )}
+        </Section>
 
-        {/* §5 フォント */}
-        <section className="settings-section">
-          <h3>フォント</h3>
+        <Section title="フォント" overridden={isOverridden('font')} onReset={onResetKey('font')}>
           <div className="radio-group">
             {Object.entries(FONTS).map(([k, f]) => (
               <label key={k} className={settings.font === k ? 'active' : ''}>
                 <input
-                  type="radio"
-                  name="font"
+                  type="radio" name="font"
                   checked={settings.font === k}
                   onChange={() => update({ font: k })}
                 />
@@ -82,11 +188,9 @@ export default function SettingsPanel({
           >
             あいうえお ABCabc 0123 — 美しく読む
           </div>
-        </section>
+        </Section>
 
-        {/* §6 テーマ */}
-        <section className="settings-section">
-          <h3>テーマ</h3>
+        <Section title="テーマ" overridden={isOverridden('theme')} onReset={onResetKey('theme')}>
           <div className="settings-row">
             {THEMES.map((t) => (
               <button
@@ -100,110 +204,29 @@ export default function SettingsPanel({
               />
             ))}
           </div>
-        </section>
+        </Section>
 
-        {/* §7 文字サイズ */}
-        <section className="settings-section">
-          <h3>文字サイズ</h3>
-          <div className="slider-row">
-            <span className="slider-value">14px</span>
-            <input
-              type="range"
-              min="14"
-              max="28"
-              step="1"
-              value={settings.fontSize}
-              onChange={(e) => update({ fontSize: Number(e.target.value) })}
-            />
-            <span className="slider-value">{settings.fontSize}px</span>
-          </div>
-        </section>
-
-        {/* §7 行間 */}
-        <section className="settings-section">
-          <h3>行間</h3>
-          <div className="slider-row">
-            <span className="slider-value">1.4</span>
-            <input
-              type="range"
-              min="1.4"
-              max="2.4"
-              step="0.1"
-              value={settings.lineHeight}
-              onChange={(e) => update({ lineHeight: Number(e.target.value) })}
-            />
-            <span className="slider-value">{settings.lineHeight.toFixed(1)}</span>
-          </div>
-        </section>
-
-        {/* §7 左右余白 */}
-        <section className="settings-section">
-          <h3>左右余白</h3>
-          <div className="slider-row">
-            <span className="slider-value">0.5</span>
-            <input
-              type="range"
-              min="0.5"
-              max="3.0"
-              step="0.25"
-              value={settings.contentPadding}
-              onChange={(e) => update({ contentPadding: Number(e.target.value) })}
-            />
-            <span className="slider-value">{settings.contentPadding.toFixed(2)}rem</span>
-          </div>
-        </section>
-
-        {/* §7 スワイプ方向 */}
-        <section className="settings-section">
-          <h3>スワイプ方向</h3>
+        <Section title="操作" overridden={isOverridden('swipeDirection')} onReset={onResetKey('swipeDirection')}>
           <div className="toggle">
             <button
               type="button"
               className={settings.swipeDirection === 'horizontal' ? 'active' : ''}
               onClick={() => update({ swipeDirection: 'horizontal' })}
-            >
-              左右
-            </button>
+            >左右スワイプ</button>
             <button
               type="button"
               className={settings.swipeDirection === 'vertical' ? 'active' : ''}
               onClick={() => update({ swipeDirection: 'vertical' })}
-            >
-              上下
-            </button>
+            >上下スワイプ</button>
           </div>
-        </section>
+        </Section>
 
-        {/* §7 ページ／スクロール */}
-        <section className="settings-section">
-          <h3>表示モード</h3>
-          <div className="toggle">
-            <button
-              type="button"
-              className={settings.mode === 'page' ? 'active' : ''}
-              onClick={() => update({ mode: 'page' })}
-            >
-              ページ送り
-            </button>
-            <button
-              type="button"
-              className={settings.mode === 'scroll' ? 'active' : ''}
-              onClick={() => update({ mode: 'scroll' })}
-            >
-              スクロール
-            </button>
-          </div>
-        </section>
-
-        {/* §7 ---の表示 */}
-        <section className="settings-section">
-          <h3>「---」の表示</h3>
+        <Section title="区切り線" overridden={isOverridden('hrStyle')} onReset={onResetKey('hrStyle')}>
           <div className="radio-group">
             {HR_STYLES.map((s) => (
               <label key={s.key} className={settings.hrStyle === s.key ? 'active' : ''}>
                 <input
-                  type="radio"
-                  name="hrStyle"
+                  type="radio" name="hrStyle"
                   checked={settings.hrStyle === s.key}
                   onChange={() => update({ hrStyle: s.key })}
                 />
@@ -211,7 +234,35 @@ export default function SettingsPanel({
               </label>
             ))}
           </div>
-        </section>
+        </Section>
+
+        <Section title="画像表示" overridden={isOverridden('imageDisplayMode')} onReset={onResetKey('imageDisplayMode')}>
+          <div className="settings-row">
+            {IMG_MODES.map((m) => (
+              <button
+                key={m.key}
+                type="button"
+                className={`settings-btn ${settings.imageDisplayMode === m.key ? 'active' : ''}`}
+                onClick={() => update({ imageDisplayMode: m.key })}
+              >{m.label}</button>
+            ))}
+          </div>
+        </Section>
+
+        <Section title="表示モード" overridden={isOverridden('mode')} onReset={onResetKey('mode')}>
+          <div className="toggle">
+            <button
+              type="button"
+              className={settings.mode === 'page' ? 'active' : ''}
+              onClick={() => update({ mode: 'page' })}
+            >ページ送り</button>
+            <button
+              type="button"
+              className={settings.mode === 'scroll' ? 'active' : ''}
+              onClick={() => update({ mode: 'scroll' })}
+            >スクロール</button>
+          </div>
+        </Section>
       </div>
     </>
   );

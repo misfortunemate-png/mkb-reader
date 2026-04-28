@@ -138,54 +138,144 @@ function applyToDocument(s) {
 
 // ───── フック本体 ─────
 
-export function useSettings() {
-  const [settings, setSettings] = useState(loadFromStorage);
+// 何を: useSettings は次の二層を扱う
+// - global: localStorage 永続化のグローバルデフォルト
+// - local : 開いているファイル（bookId）の上書き設定。useBookshelf 経由で IndexedDB に保存
+// なぜ: 仕様書 Phase 3a §4.6 — 原本を変更せず、ファイル単位の設定上書きを許す非破壊モデル
+//
+// scope = 'global' | 'local' によって update / applyPreset / reset の対象を切替える。
+// 表示に使う「実効設定」は getEffectiveSettings(local?) で global と local をマージした結果。
+// 実効設定の DOM 反映（CSS 変数、テーマ、フォント link）は同じく useEffect で行う。
+
+export function useSettings({ activeBookId, getLocalSettings, saveLocalSettings } = {}) {
+  // global は localStorage、local は引数経由（IndexedDB ベース）
+  const [global, setGlobal] = useState(loadFromStorage);
+  const [local, setLocal] = useState(null);
+  const [scope, setScope] = useState('global'); // 設定パネルが「すべての本」/「この本」のどちらを編集中か
   const initialMounted = useRef(false);
 
-  // 設定変更で localStorage と DOM 反映
+  // book 切替時に local を読み直す
   useEffect(() => {
-    saveToStorage(settings);
-    applyToDocument(settings);
-  }, [settings]);
+    let cancelled = false;
+    (async () => {
+      if (!activeBookId || !getLocalSettings) {
+        setLocal(null);
+        return;
+      }
+      try {
+        const ls = await getLocalSettings(activeBookId);
+        if (!cancelled) setLocal(ls || null);
+      } catch (e) {
+        console.error('getLocalSettings failed:', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [activeBookId, getLocalSettings]);
 
-  // フォント link の動的ロード/アンロード
+  // 何を: 実効設定（local.display ∪ global）
+  // なぜ: 仕様書 §4.6 の解決順序「local.display.X ?? global.X ?? デフォルト」
+  const effective = useMemo(() => {
+    const ld = local?.display || {};
+    return { ...DEFAULTS, ...global, ...ld };
+  }, [global, local]);
+
+  // 実効設定の永続化（global のみ localStorage、local は呼び出し側で保存）
+  useEffect(() => {
+    saveToStorage(global);
+  }, [global]);
+
+  // 実効設定 → DOM 反映
+  useEffect(() => {
+    applyToDocument(effective);
+  }, [effective]);
+
+  // フォント link の動的ロード/アンロード（実効値で判定）
   useEffect(() => {
     if (!initialMounted.current) {
       removeStaticFontLinks();
       initialMounted.current = true;
     }
-    const f = FONTS[settings.font] || FONTS[DEFAULTS.font];
-    ensureFontLink(f.href, settings.font);
+    const f = FONTS[effective.font] || FONTS[DEFAULTS.font];
+    ensureFontLink(f.href, effective.font);
     ensureFontLink(PAIRING.href, 'pairing');
-    // 選択フォント以外は削除（pairing は常に保持）
-    removeFontLinks([settings.font, 'pairing']);
-  }, [settings.font]);
+    removeFontLinks([effective.font, 'pairing']);
+  }, [effective.font]);
 
   // ───── 公開 API ─────
 
+  // scope に応じて global / local.display を更新
   const update = useCallback((patch) => {
-    setSettings((prev) => ({ ...prev, ...patch }));
-  }, []);
+    if (scope === 'local' && activeBookId && saveLocalSettings) {
+      const next = { ...(local || {}) };
+      next.display = { ...(next.display || {}), ...patch };
+      setLocal(next);
+      saveLocalSettings(activeBookId, next).catch((e) => console.error(e));
+    } else {
+      setGlobal((prev) => ({ ...prev, ...patch }));
+    }
+  }, [scope, activeBookId, local, saveLocalSettings]);
 
   const applyPreset = useCallback((presetKey) => {
     const p = PRESETS[presetKey];
     if (!p) return;
-    setSettings((prev) => ({ ...prev, ...p, _preset: presetKey }));
-  }, []);
+    update(p);
+  }, [update]);
 
-  const reset = useCallback(() => setSettings({ ...DEFAULTS }), []);
+  const reset = useCallback(() => {
+    if (scope === 'local' && activeBookId && saveLocalSettings) {
+      // ローカル設定を全削除（グローバルに戻す）
+      const next = { ...(local || {}) };
+      delete next.display;
+      setLocal(Object.keys(next).length ? next : null);
+      saveLocalSettings(activeBookId, Object.keys(next).length ? next : null).catch((e) => console.error(e));
+    } else {
+      setGlobal({ ...DEFAULTS });
+    }
+  }, [scope, activeBookId, local, saveLocalSettings]);
 
-  // 現在の値がどのプリセットにマッチするか（プリセットボタンのアクティブ表示用）
+  // 個別キーをリセット（ローカルだけからその key を削除しグローバルへ戻す）
+  const resetLocalKey = useCallback((key) => {
+    if (!activeBookId || !saveLocalSettings) return;
+    const next = { ...(local || {}) };
+    if (next.display) {
+      const d = { ...next.display };
+      delete d[key];
+      next.display = Object.keys(d).length ? d : undefined;
+      if (!next.display && !next.patches && !next.insertedAssets) {
+        setLocal(null);
+        saveLocalSettings(activeBookId, null).catch((e) => console.error(e));
+        return;
+      }
+    }
+    setLocal(next);
+    saveLocalSettings(activeBookId, next).catch((e) => console.error(e));
+  }, [activeBookId, local, saveLocalSettings]);
+
   const activePreset = useMemo(() => {
     for (const [k, p] of Object.entries(PRESETS)) {
       if (
-        Math.abs(settings.fontSize - p.fontSize) < 0.001 &&
-        Math.abs(settings.lineHeight - p.lineHeight) < 0.001 &&
-        Math.abs(settings.contentPadding - p.contentPadding) < 0.001
+        Math.abs(effective.fontSize - p.fontSize) < 0.001 &&
+        Math.abs(effective.lineHeight - p.lineHeight) < 0.001 &&
+        Math.abs(effective.contentPadding - p.contentPadding) < 0.001
       ) return k;
     }
     return null;
-  }, [settings.fontSize, settings.lineHeight, settings.contentPadding]);
+  }, [effective.fontSize, effective.lineHeight, effective.contentPadding]);
 
-  return { settings, update, applyPreset, reset, activePreset };
+  // ローカル設定がどのキーで上書きされているか（ドット表示用）
+  const overriddenKeys = useMemo(() => {
+    return new Set(Object.keys(local?.display || {}));
+  }, [local]);
+
+  // 後方互換: 既存コードは settings 名で参照しているので alias
+  const settings = effective;
+
+  return {
+    settings,
+    update, applyPreset, reset, resetLocalKey,
+    activePreset,
+    scope, setScope,
+    hasLocal: !!local,
+    overriddenKeys,
+  };
 }

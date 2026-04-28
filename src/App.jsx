@@ -33,10 +33,19 @@ export default function App() {
     deleteBook,
     updateLastOpened,
     findByTitle,
+    getLocalSettings,
+    saveLocalSettings,
   } = useBookshelf();
 
-  // §5 §6 §7 設定
-  const { settings, update, applyPreset, activePreset } = useSettings();
+  // §5 §6 §7 + §4.6 二層: 開いている本の id を渡してローカル設定を有効化
+  const {
+    settings, update, applyPreset, activePreset,
+    scope, setScope, hasLocal, overriddenKeys, resetLocalKey,
+  } = useSettings({
+    activeBookId: activeEntry?.id,
+    getLocalSettings,
+    saveLocalSettings,
+  });
 
   const [currentId, setCurrentId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -247,6 +256,12 @@ export default function App() {
         update={update}
         applyPreset={applyPreset}
         activePreset={activePreset}
+        scope={scope}
+        setScope={setScope}
+        hasLocal={hasLocal}
+        overriddenKeys={overriddenKeys}
+        resetLocalKey={resetLocalKey}
+        canEditLocal={!!activeEntry?.id}
       />
     </div>
   );

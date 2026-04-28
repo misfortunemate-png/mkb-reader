@@ -765,6 +765,88 @@ button {
 }
 .radio-group input[type="radio"] { display: none; }
 
+/* §4.5 アコーディオン化されたセクションヘッダー / §4.6 上書きインジケータ */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.section-toggle {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font-family: inherit;
+  text-align: left;
+}
+.section-caret {
+  width: 1em;
+  font-size: 0.9em;
+  color: var(--color-text-secondary);
+}
+.section-header h3 { margin: 0 0 0.2rem; }
+.section-header .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  margin-left: 0.4rem;
+}
+.reset-btn {
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+}
+.section-body { padding-top: 0.5rem; }
+.details-toggle {
+  display: block;
+  margin-top: 0.6rem;
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+/* §4.6 スコープ切替（すべての本 / この本） */
+.scope-toggle {
+  display: flex;
+  margin: 0 0 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.scope-toggle button {
+  flex: 1;
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.scope-toggle button.active {
+  background: var(--color-accent);
+  color: #fff;
+}
+.scope-toggle button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* ─────────────────────────────────────────────────────────
    §10 HTML / JSON 閲覧（Phase 3a）
    ───────────────────────────────────────────────────────── */

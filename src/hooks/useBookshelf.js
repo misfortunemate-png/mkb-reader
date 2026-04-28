@@ -117,6 +117,30 @@ export function useBookshelf() {
     return list.find((b) => b.title === title) || null;
   }, []);
 
+  // 何を: ローカル設定の取得
+  // なぜ: 仕様書 Phase 3a §4.6 — 本ごとの上書き設定を BookEntry.localSettings に保存
+  const getLocalSettings = useCallback(async (id) => {
+    const db = dbRef.current; if (!db || !id) return null;
+    const entry = await awaitReq(tx(db, 'readonly').get(id));
+    return entry?.localSettings || null;
+  }, []);
+
+  // 何を: ローカル設定の保存（null を渡すと削除）
+  // なぜ: useSettings から「グローバルに戻す」を呼べるように null も受ける
+  const saveLocalSettings = useCallback(async (id, ls) => {
+    const db = dbRef.current; if (!db || !id) return;
+    const store = tx(db, 'readwrite');
+    const entry = await awaitReq(store.get(id));
+    if (!entry) return;
+    if (ls === null || ls === undefined) {
+      delete entry.localSettings;
+    } else {
+      entry.localSettings = ls;
+    }
+    await awaitReq(store.put(entry));
+    await refresh();
+  }, [refresh]);
+
   return {
     books,
     loading,
@@ -126,6 +150,8 @@ export function useBookshelf() {
     deleteBook,
     updateLastOpened,
     findByTitle,
+    getLocalSettings,
+    saveLocalSettings,
     refresh,
   };
 }
