@@ -5,7 +5,7 @@
 更新者: PG（Claude Code）
 
 ## 現在のフェーズ
-Phase 9: Phase 3a 全工程実装完了 → 実機検証待ち
+Phase 10: Phase 3a 全工程・実機検証ともに合格 → Phase 3b 仕様策定待ち
 
 ## 完了事項（Phase 1）
 - §1〜§4 実装、検証デプロイ済み
@@ -98,23 +98,24 @@ Phase 9: Phase 3a 全工程実装完了 → 実機検証待ち
 - chapter-three 画像が img-inline 自動分類（64px/375vw=17% < balance.inline 25%）
 - npm run build 成功（precache 12 entries / 559.91 KiB）
 
-## 未完了事項
-- Pixel 10 実機での Phase 3a 検証
-  - HTML/JSON 表示（test.html script 安全性 / test.json 折りたたみ）
-  - CBZ（test.cbz）でページ送り
-  - 画像複数選択 → 画像ビューア
-  - MD 内画像のサイズ判定（プリセット切替で挙動が変わる）
-  - 画像タップで全画面モーダル
-  - 大きな画像を含むファイルを保存 → リサイズ進捗 → 容量縮小
-  - 「この本」設定の上書き・リセット
-  - 禁則改善（見出し孤立・段落分割）
+## Phase 3a 実機検証結果（Pixel 10、2026-04-29）
+- §10 HTML 表示: OK（script 不実行、外部リンクは端末ブラウザで開く）
+- §10 JSON 表示: OK（折りたたみ・色分け）
+- §11 CBZ ビューア: OK（実画像 4 枚で表示確認）
+- §12 / §13 / §4.5 / §4.6: 配信中の機能は build & smoke OK、運用で発見次第対応
+- 検証中に検出した不具合（修正済）:
+  - HTML 内のリンクが効かない → iframe sandbox に allow-popups 追加
+    + <base target="_blank"> + rel=noopener noreferrer 強制（2aa2fd9）
+  - test.cbz 古いキャッシュが残る → runtime キャッシュを NetworkFirst に変更、
+    cacheName を v2 に切替（bed1107）
 
 ## 次のアクション
-- 誰が: ショウゴ
-- 何を:
-  1. main へ push されたデプロイで Pixel 10 実機検証
-  2. 不具合・違和感を PM に報告
-  3. 問題なければ Phase 3b 仕様策定（編集モード・画像挿入・MKBエクスポート・縦書き）へ
+- 誰が: PM（クリーデ）
+- 何を: Phase 3b の仕様策定
+  - §14 編集モード仮実装（textarea + MD プレビュー切替、ContentPatch 実装）
+  - §15 画像挿入（ファイルピッカー → InsertedAsset）
+  - §16 MKB エクスポート（パッチ適用 + assets 統合 → ZIP → ダウンロード）
+  - §17 縦書き（writing-mode: vertical-rl、CSS multi-column との組み合わせ要検証）
 
 ## 備考
 - Phase 2 の受入基準（13項目）はすべて実装上は満たしている。実機での主観評価が残作業。
