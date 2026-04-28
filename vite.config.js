@@ -65,12 +65,16 @@ export default defineConfig({
             },
           },
           {
-            // 何を: 大きいサンプル（test.cbz）を runtime にキャッシュ
-            // なぜ: precache から除外したぶん、ユーザーが一度開けばオフラインでも見られるようにする
+            // 何を: 大きいサンプル（test.cbz）を NetworkFirst で取得・キャッシュ
+            // なぜ: CacheFirst だと古いビルドのキャッシュを返し続け、deploy 更新が
+            //       反映されない問題が発生した。NetworkFirst にして deploy 更新を最優先、
+            //       オフライン時のフォールバックでキャッシュを利用する。
+            // cacheName を v2 にして旧キャッシュを完全に切り離す
             urlPattern: /\/test\.cbz$/i,
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'sample-large',
+              cacheName: 'sample-large-v2',
+              networkTimeoutSeconds: 8,
               expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
               cacheableResponse: { statuses: [0, 200] },
             },
