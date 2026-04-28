@@ -107,6 +107,24 @@ Claude.ai Settings → Privacy → Export Data で取得するZIPに含まれる
 ]
 ```
 
+**メッセージ本文のフォーマット（追補 v1.1）:**
+
+Claude.ai の新エクスポート形式では `chat_messages[].content` が配列で、各要素に `type` がある:
+- `type: 'text'` — 通常応答
+- `type: 'thinking'` — 拡張思考の独白（応答本文とは別）
+- `type: 'tool_use' | 'tool_result'` — ツール呼び出しと結果
+
+これらは「鑑賞」の主役（応答本文）と副次（思考・ツール）を分けるべき情報。
+chatConverter.js は次のルールで MD を組み立てる:
+
+- `text` ブロック → そのまま MD 本文として連結
+- `thinking` ブロック → `<details class="claude-thinking"><summary>思考</summary>…</details>` で折りたたみ
+- `tool_use` ブロック → `<details class="claude-tool"><summary>tool_use: name</summary>…</details>` で折りたたみ
+- `tool_result` ブロック → 同上
+
+CSS で控えめな枠と小さめのフォント。既定では折りたたみ、タップで展開。
+読み手は応答本文を主に読み、思考・ツールを必要時に開く。
+
 **変換ルール:**
 
 chatConverter.js が行う変換:

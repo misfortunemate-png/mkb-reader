@@ -45,6 +45,73 @@ export function parseConversationsJson(text) {
 
 // ───── MD 組み立て ─────
 
+// 何を: 1 メッセージの中身を MD 文字列に展開する
+// なぜ: Claude.ai のエクスポートは新旧フォーマット混在。
+//   - 旧: m.text に最終応答が文字列で入っている
+//   - 新: m.content[] に { type, ... } のブロック配列。type='text' / 'thinking' /
+//         'tool_use' / 'tool_result' 等が混在
+//   思考・ツール出力と最終応答を視覚的に区別する（読み手は応答を主、思考を副として読みたい）。
+//   <details> で折りたたむことで:
+//     - 既定では応答だけ目に入る
+//     - タップで思考を展開できる
+//     - 読み替えルール（§14）の対象としても扱える（テキストとして MD 内に存在する）
+function messageBodyToMd(m) {
+  const blocks = Array.isArray(m.content) ? m.content : null;
+  // 旧フォーマット（content が string か無い）→ text を使う
+  if (!blocks) {
+    const t = typeof m.text === 'string' ? m.text
+      : typeof m.content === 'string' ? m.content
+      : '';
+    return t.trim();
+  }
+  const out = [];
+  for (const b of blocks) {
+    if (!b || typeof b !== 'object') continue;
+    const type = String(b.type || 'text');
+    if (type === 'text') {
+      const t = typeof b.text === 'string' ? b.text : '';
+      if (t.trim()) out.push(t.trim());
+    } else if (type === 'thinking') {
+      const t = typeof b.thinking === 'string' ? b.thinking
+        : typeof b.text === 'string' ? b.text : '';
+      if (t.trim()) {
+        out.push('<details class="claude-thinking"><summary>思考</summary>\n\n' + t.trim() + '\n\n</details>');
+      }
+    } else if (type === 'tool_use') {
+      // 簡略表示: name + input(JSON)
+      const name = String(b.name || 'tool');
+      let body = '';
+      try { body = JSON.stringify(b.input ?? {}, null, 2); } catch { body = ''; }
+      out.push(`<details class="claude-tool"><summary>tool_use: ${escapeHtml(name)}</summary>\n\n\`\`\`json\n${body}\n\`\`\`\n\n</details>`);
+    } else if (type === 'tool_result') {
+      const tcid = String(b.tool_use_id || '');
+      let bodyText = '';
+      // tool_result.content は array or string
+      if (Array.isArray(b.content)) {
+        bodyText = b.content
+          .map((x) => (typeof x === 'string' ? x : (x?.text || '')))
+          .filter(Boolean)
+          .join('\n\n');
+      } else if (typeof b.content === 'string') {
+        bodyText = b.content;
+      }
+      out.push(`<details class="claude-tool"><summary>tool_result${tcid ? ` (${escapeHtml(tcid)})` : ''}</summary>\n\n${bodyText.trim()}\n\n</details>`);
+    } else {
+      // 未知タイプはコメントとして残す
+      out.push(`<!-- ${escapeHtml(type)} block omitted -->`);
+    }
+  }
+  // content[] が空 / 取れなかった場合は m.text にフォールバック
+  if (out.length === 0 && typeof m.text === 'string') return m.text.trim();
+  return out.join('\n\n');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
 // 何を: メッセージ配列 → MD テキスト
 // なぜ: 各メッセージを `**話者名**` + 空行 + 本文 + `---` で連結する
 //       Bold 話者名にする理由は読み替え対象（§14）として正規化するため
@@ -52,12 +119,10 @@ function messagesToMd(messages) {
   const lines = [];
   for (const m of messages) {
     const sender = String(m.sender || m.role || 'unknown');
-    const text = typeof m.text === 'string' ? m.text
-      : typeof m.content === 'string' ? m.content
-      : '';
+    const body = messageBodyToMd(m);
     lines.push(`**${sender}**`);
     lines.push('');
-    lines.push(text.trim());
+    lines.push(body);
     lines.push('');
     lines.push('---');
     lines.push('');
