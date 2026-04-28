@@ -26,19 +26,19 @@ async function walk(dir) {
 }
 
 async function main() {
-  // テスト画像が無ければ最小PNGを生成（プレースホルダ）
+  // 何を: 画像が無い場合に視認可能な64x64茶色PNGを生成
+  // なぜ: §4 検証で 1x1 透過では「画像が表示されたか」が肉眼で判定できなかった
   const imgPath = join(SRC, 'assets', 'test-image.png');
   try {
     await stat(imgPath);
   } catch {
-    // 1x1透過PNGの最小バイナリ
     const placeholder = Buffer.from(
-      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Z8nXyQAAAAASUVORK5CYII=',
+      'iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAACzklEQVR4nO2bsW7TQBSGv3MdCWFCBSqUKJ0qKmaeoBJDh4qhSyVeoFKnPgEDD8DSBzAULJUYWLojJiqGTAWphCB1iiK1SeRzGNxLnOA4cZw4RP6lW1xfn3PP/9197Ts7QrgE4eLa9ynQAvaBXaAOPAeeAk+BXeAycBV4DbwHfgM/gM/AVeATsAd0gQ74F3gFvAU+AmfAJfACOAVOgGPgFPgGtIE2cAR8AN4Bb4APwFvgM3AKnAGvgNfAS6AOPAOeAg+APaAObAM/gZ/AKfAd+ATsA/vAp7H8/zVcAjqgIYBgX8nq8gIuhAQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gQg4gT8E0pkR3K3Z0DuFA0u4pYPYV9p/Wx+m8jD2+nJtS+xN1qW/A/wIKAFYP7L4f4HYLAB9oH7yGsLHAFNoA9bAFlQAUYNXAZ4yNgEJgYBzGqAMRljW7pX7dHpzFh4D3+jSkS8cKTKAGw5cAxsZRYAfeNCmvF8RKQGGsFxwBV4t1ofE7ofwMrBsAo8Aha+gKwDvgWaQAvoaH3VCgAaoTOQH+kmcg2sKGTr/wCqKLkCpDaP0NQAAAAASUVORK5CYII=',
       'base64',
     );
     await mkdir(dirname(imgPath), { recursive: true });
     await writeFile(imgPath, placeholder);
-    console.log('[build-test-mkb] placeholder PNG を生成:', imgPath);
+    console.log('[build-test-mkb] 視認可能なテストPNGを生成:', imgPath);
   }
 
   const files = await walk(SRC);

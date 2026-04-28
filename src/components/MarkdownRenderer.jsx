@@ -46,6 +46,15 @@ export default function MarkdownRenderer({ chapter, chapters, onWikiLinkClick })
           remarkGfm,
           [remarkWikiLink, { permalinks, pageResolver, hrefTemplate, aliasDivider: '|' }],
         ]}
+        // 何を: blob: と # を許可する urlTransform を渡す
+        // なぜ: react-markdown のデフォルトは XSS 対策で blob: URL を空文字に置換するため、
+        //       mkb の assets を Blob URL 化しても <img src> が空になり画像が表示されない（§4 修正）
+        urlTransform={(url) => {
+          if (typeof url !== 'string') return url;
+          if (url.startsWith('blob:') || url.startsWith('#') || url.startsWith('data:image/')) return url;
+          // それ以外はデフォルト挙動（http/https/相対）
+          return url;
+        }}
         components={{
           // wikilink: hash 形式の href をクリックハンドラへ橋渡し
           a({ href, children, className, ...rest }) {

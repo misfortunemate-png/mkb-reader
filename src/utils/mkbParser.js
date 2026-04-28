@@ -47,11 +47,25 @@ export async function parseMkbZip(zip, fallbackTitle = 'Untitled') {
   }
 
   // 2) assets/ を Blob URL 化
+  // 何を: 拡張子から MIME type を推定し、Blob に明示的に設定する
+  // なぜ: JSZip.async('blob') は type を空文字で生成する。MIME 未指定の Blob URL は
+  //       一部ブラウザ/環境（特に Service Worker 経由）で <img> がデコードに失敗する
+  const MIME = {
+    png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif',
+    webp: 'image/webp', svg: 'image/svg+xml', avif: 'image/avif',
+    mp3: 'audio/mpeg', wav: 'audio/wav', m4a: 'audio/mp4',
+    mp4: 'video/mp4', webm: 'video/webm',
+    pdf: 'application/pdf',
+    woff: 'font/woff', woff2: 'font/woff2', ttf: 'font/ttf', otf: 'font/otf',
+  };
   const assetsMap = new Map(); // 相対パス（assets/foo.png 形式） → blob URL
   const assetEntries = zip.file(/^assets\//);
   for (const entry of assetEntries) {
     if (entry.dir) continue;
-    const blob = await entry.async('blob');
+    const ext = entry.name.split('.').pop()?.toLowerCase();
+    const type = MIME[ext] || 'application/octet-stream';
+    const ab = await entry.async('arraybuffer');
+    const blob = new Blob([ab], { type });
     const url = URL.createObjectURL(blob);
     assetsMap.set(entry.name, url);
   }
