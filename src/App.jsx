@@ -4,7 +4,7 @@
 // 画面: 本棚（Bookshelf） ↔ ビューア（Reader）
 // ビューアでは右上のギア（⚙）から SettingsPanel をボトムシート表示
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import FileLoader from './components/FileLoader.jsx';
 import ChapterNav from './components/ChapterNav.jsx';
 import Paginator from './components/Paginator.jsx';
@@ -15,6 +15,7 @@ import JsonRenderer from './components/JsonRenderer.jsx';
 import ImageViewer from './components/ImageViewer.jsx';
 import ChatImporter from './components/ChatImporter.jsx';
 import RewritePanel from './components/RewritePanel.jsx';
+import ImageInserter from './components/ImageInserter.jsx';
 import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
@@ -63,6 +64,7 @@ export default function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rewriteOpen, setRewriteOpen] = useState(false);
+  const [imageInserterOpen, setImageInserterOpen] = useState(false);
 
   // §14 読み替えルール
   const rewrite = useRewrite({
@@ -70,6 +72,45 @@ export default function App() {
     getLocalSettings,
     saveLocalSettings,
   });
+
+  // §15 InsertedAsset の Blob URL キャッシュ（id → blob URL）
+  // 何を: ArrayBuffer のままだと <img src> で使えないので Blob URL を作る
+  // なぜ: localSettings.rewrite.insertedAssets[].data は ArrayBuffer 永続。
+  //       描画時だけ URL 化、book 切替時に解放してメモリリーク防止
+  const assetUrlMapRef = useRef(new Map());
+  const insertedAssetUrls = useMemo(() => {
+    const list = rewrite.rules.insertedAssets || [];
+    const next = new Map();
+    for (const a of list) {
+      const cached = assetUrlMapRef.current.get(a.id);
+      if (cached) { next.set(a.id, cached); continue; }
+      try {
+        const blob = new Blob([a.data], { type: a.mimeType || 'application/octet-stream' });
+        next.set(a.id, URL.createObjectURL(blob));
+      } catch { /* ignore */ }
+    }
+    // 古い URL を解放
+    for (const [id, url] of assetUrlMapRef.current.entries()) {
+      if (!next.has(id)) {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+      }
+    }
+    assetUrlMapRef.current = next;
+    return next;
+  }, [rewrite.rules.insertedAssets]);
+
+  // book 切替時にすべての URL を破棄
+  useEffect(() => {
+    return () => {
+      for (const url of assetUrlMapRef.current.values()) {
+        try { URL.revokeObjectURL(url); } catch { /* ignore */ }
+      }
+      assetUrlMapRef.current = new Map();
+    };
+  }, [activeEntry?.id]);
+
+  // applyRewrite に渡す URL 解決関数
+  const insertedAssetUrl = (asset) => insertedAssetUrls.get(asset?.id) || asset?.path || '';
 
   // 何を: コンテンツが読み込まれたらビューア画面へ遷移
   // なぜ: ViewerContent 抽象化（Phase 3a §10〜§11）— mkb 以外も view='reader' で扱う
@@ -291,6 +332,7 @@ export default function App() {
           imageDisplayMode={settings.imageDisplayMode}
           rewriteRules={rewrite.rules}
           rewriteHighlight={settings.rewriteHighlight}
+          insertedAssetUrl={insertedAssetUrl}
         />
       )}
       {content.type === 'html' && (
@@ -323,6 +365,18 @@ export default function App() {
           updateHiddenRange={rewrite.updateHiddenRange}
           removeHiddenRange={rewrite.removeHiddenRange}
           currentChapter={currentChapter}
+          onAddImage={() => setImageInserterOpen(true)}
+          onToggleAsset={(id, enabled) => rewrite.updateInsertedAsset(id, { enabled })}
+          onRemoveAsset={(id) => rewrite.removeInsertedAsset(id)}
+        />
+      )}
+      {/* §15 画像差し込みダイアログ */}
+      {isMkb && (
+        <ImageInserter
+          open={imageInserterOpen}
+          onClose={() => setImageInserterOpen(false)}
+          currentChapter={currentChapter}
+          onAdd={async (asset) => { rewrite.addInsertedAsset(asset); }}
         />
       )}
       <SettingsPanel

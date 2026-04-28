@@ -95,6 +95,8 @@ export default function RewritePanel({
   currentChapter,
   // 画像差し込み（§15）入口
   onAddImage,
+  onToggleAsset,   // (id, enabled) => void
+  onRemoveAsset,   // (id) => void
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -173,10 +175,34 @@ export default function RewritePanel({
           )}
         </section>
 
-        {onAddImage && (
+        {(onAddImage || (rules.insertedAssets || []).length > 0) && (
           <section className="settings-section">
-            <h3>画像</h3>
-            <button type="button" className="settings-btn" onClick={onAddImage}>＋ 画像を差し込む</button>
+            <header className="rw-sec-header">
+              <h3 style={{ flex: 1 }}>差し込み画像</h3>
+              {onAddImage && (
+                <button type="button" className="settings-btn" onClick={onAddImage}>＋ 追加</button>
+              )}
+            </header>
+            {(rules.insertedAssets || []).length === 0 ? (
+              <p className="rw-empty">なし</p>
+            ) : (
+              <div className="rw-list">
+                {rules.insertedAssets.map((a) => (
+                  <div key={a.id} className="rw-rep">
+                    <input
+                      type="checkbox"
+                      checked={a.enabled !== false}
+                      onChange={(e) => onToggleAsset?.(a.id, e.target.checked)}
+                      aria-label="有効化"
+                    />
+                    <span className="rw-input" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {a.altText || '(alt なし)'} — line {a.insertAfter?.lineNumber ?? '?'}
+                    </span>
+                    <button type="button" className="rw-x" onClick={() => onRemoveAsset?.(a.id)} aria-label="削除">✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         )}
       </div>

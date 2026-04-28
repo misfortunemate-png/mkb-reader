@@ -1139,6 +1139,20 @@ button {
   border-radius: 2px;
 }
 
+/* §15 画像差し込みダイアログ プレビュー */
+.ii-preview {
+  margin: 0.5rem 0;
+  text-align: center;
+  background: var(--color-code-bg);
+  border-radius: 6px;
+  padding: 0.5rem;
+}
+.ii-preview img {
+  max-width: 100%;
+  max-height: 30vh;
+  object-fit: contain;
+}
+
 /* §12 リサイズ進捗バッジ */
 .resize-progress {
   position: fixed;
