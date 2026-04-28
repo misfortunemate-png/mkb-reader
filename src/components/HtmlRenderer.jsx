@@ -16,29 +16,53 @@ export default function HtmlRenderer({ content, name }) {
     const bg = root.getPropertyValue('--color-bg').trim() || '#faf8f5';
     const fg = root.getPropertyValue('--color-text').trim() || '#1a1a1a';
     const fam = root.getPropertyValue('--font-body').trim() || 'serif';
+    // 何を: <a> を全て新規タブで端末ブラウザに開く
+    // なぜ: iframe sandbox（allow-scripts なし）内ではトップ navigate 不可、
+    //       かつアプリ内で外部ページを表示するのは設計外。端末ブラウザで開かせる。
+    //       <base target="_blank"> で全アンカーのデフォルト target を上書き
     const themeStyle = `<style>
       html, body { background: ${bg}; color: ${fg}; font-family: ${fam}; }
       body { margin: 1rem; line-height: 1.7; }
       a { color: inherit; }
       img { max-width: 100%; height: auto; }
       pre { white-space: pre-wrap; word-break: break-word; }
-    </style>`;
+    </style>
+    <base target="_blank">`;
 
     // <head> があればその直前に挿入、無ければ先頭に
+    let html;
     if (/<head[^>]*>/i.test(content)) {
-      return content.replace(/<head[^>]*>/i, (m) => m + themeStyle);
+      html = content.replace(/<head[^>]*>/i, (m) => m + themeStyle);
+    } else if (/<html[^>]*>/i.test(content)) {
+      html = content.replace(/<html[^>]*>/i, (m) => `${m}<head>${themeStyle}</head>`);
+    } else {
+      html = `<!doctype html><html><head>${themeStyle}</head><body>${content}</body></html>`;
     }
-    if (/<html[^>]*>/i.test(content)) {
-      return content.replace(/<html[^>]*>/i, (m) => `${m}<head>${themeStyle}</head>`);
-    }
-    return `<!doctype html><html><head>${themeStyle}</head><body>${content}</body></html>`;
+    // 個別のアンカー rel を補強（noopener noreferrer を強制付与）
+    html = html.replace(/<a\s+([^>]*?)>/gi, (m, attrs) => {
+      // rel 属性を保持しつつ noopener noreferrer を必ず含める
+      let next = attrs;
+      if (/\srel\s*=/.test(' ' + next)) {
+        next = next.replace(/(rel\s*=\s*["']?)([^"'>\s]*)/i, (mm, p1, p2) => {
+          const set = new Set((p2 || '').split(/\s+/).filter(Boolean));
+          set.add('noopener'); set.add('noreferrer');
+          return `${p1}${[...set].join(' ')}`;
+        });
+      } else {
+        next += ` rel="noopener noreferrer"`;
+      }
+      return `<a ${next}>`;
+    });
+    return html;
   }, [content]);
 
   return (
     <div className="html-frame-wrap">
       <iframe
         title={name || 'HTML'}
-        sandbox="allow-same-origin"
+        // 何を: allow-popups を追加。allow-scripts は意図的に外したまま
+        // なぜ: 外部リンクを端末ブラウザで開けるようにしつつ、XSS（script 実行）は防ぐ
+        sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
         srcDoc={srcdoc}
         className="html-frame"
       />
