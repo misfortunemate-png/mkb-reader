@@ -1,0 +1,83 @@
+[
+  {
+    "uuid": "11111111-aaaa-bbbb-cccc-000000000001",
+    "name": "技術相談: CSS multi-column の罠",
+    "created_at": "2026-04-26T09:00:00.000Z",
+    "updated_at": "2026-04-26T09:30:00.000Z",
+    "model": "claude-opus-4-7",
+    "chat_messages": [
+      {
+        "uuid": "m-001",
+        "sender": "human",
+        "text": "CSS multi-column でページネーションを実装したいんだが、column-width と column-count の関係がよく分からない。どっちを優先するのが正解？",
+        "created_at": "2026-04-26T09:00:00.000Z"
+      },
+      {
+        "uuid": "m-002",
+        "sender": "assistant",
+        "text": "結論から言うと、**column-width を主、column-count は補助**として扱うのが堅実です。\n\n## 理由\n\n- `column-width` だけ指定すると、コンテナ幅に応じて列数が自動調整される\n- `column-count: 1` を後置すると、`columns` shorthand が `column-width` を上書きしてしまうことがあります\n- 結果、`scrollWidth` が伸びず、ページ計算が狂う\n\n```css\n.track {\n  column-width: 100%;\n  column-count: auto; /* 暗黙的に \"as-many-as-fit\" */\n  column-gap: 0;\n}\n```\n\nこの形なら multi-column の本来の挙動が出ます。",
+        "created_at": "2026-04-26T09:00:30.000Z"
+      },
+      {
+        "uuid": "m-003",
+        "sender": "human",
+        "text": "なるほど、shorthand が罠なのか。気をつける。",
+        "created_at": "2026-04-26T09:01:00.000Z"
+      },
+      {
+        "uuid": "m-004",
+        "sender": "assistant",
+        "text": "はい。CSS の shorthand は順序や省略値の扱いがプロパティごとに違うので、precise な制御が要る場面では個別プロパティで書くほうが事故が少ないです。",
+        "created_at": "2026-04-26T09:01:20.000Z"
+      }
+    ]
+  },
+  {
+    "uuid": "22222222-aaaa-bbbb-cccc-000000000002",
+    "name": "創作: 静かな朝の描写",
+    "created_at": "2026-04-27T07:00:00.000Z",
+    "updated_at": "2026-04-27T07:45:00.000Z",
+    "model": "claude-opus-4-7",
+    "chat_messages": [
+      {
+        "uuid": "m-101",
+        "sender": "human",
+        "text": "「静かな朝」を描写する短い散文を書いてくれ。読む側の呼吸が落ち着くようなテンポで。",
+        "created_at": "2026-04-27T07:00:00.000Z"
+      },
+      {
+        "uuid": "m-102",
+        "sender": "assistant",
+        "text": "夜が明ける前の、いちばん深い藍。窓の外では、空気そのものがまだ眠っているようだった。彼女は布団のなかでひとつ寝返りを打ち、それから、もう眠れないことを諦めた。明朝体の本を一冊、枕元から手に取る。背表紙に薄く積もった埃を、指先でそっとなぞった。\n\n紙の匂いがする。それは古い旅館の、誰もいない廊下の匂いに似ていた。彼女はその匂いが好きだった。新しい本にはない、時間の沈殿した匂い。誰かの指が触れ、誰かの目が文字を追い、誰かが一節に線を引いた、その痕跡の匂いだった。",
+        "created_at": "2026-04-27T07:01:00.000Z"
+      },
+      {
+        "uuid": "m-103",
+        "sender": "human",
+        "text": "良い。続きはない方がいいかもね。",
+        "created_at": "2026-04-27T07:02:00.000Z"
+      }
+    ]
+  },
+  {
+    "uuid": "33333333-aaaa-bbbb-cccc-000000000003",
+    "name": "短い雑談",
+    "created_at": "2026-04-28T22:00:00.000Z",
+    "updated_at": "2026-04-28T22:00:30.000Z",
+    "model": "claude-opus-4-7",
+    "chat_messages": [
+      {
+        "uuid": "m-201",
+        "sender": "human",
+        "text": "おやすみ",
+        "created_at": "2026-04-28T22:00:00.000Z"
+      },
+      {
+        "uuid": "m-202",
+        "sender": "assistant",
+        "text": "おやすみなさい。",
+        "created_at": "2026-04-28T22:00:01.000Z"
+      }
+    ]
+  }
+]

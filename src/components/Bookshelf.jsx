@@ -21,6 +21,7 @@ export default function Bookshelf({
   onDeleteBook,      // (id) => Promise<void>
   onLoadSample,      // (url, displayName) => void: 同梱サンプルを開く（任意）
   samples,           // [{ label, url, name }] 同梱サンプル一覧（任意）
+  onOpenChatImporter,// () => void: §18 チャットログ取り込み画面へ（任意）
   error,
 }) {
   const inputRef = useRef(null);
@@ -78,6 +79,17 @@ export default function Bookshelf({
     <div className="bookshelf">
       <header className="bookshelf-header">
         <div className="title">mkb-reader</div>
+        {onOpenChatImporter && (
+          <button
+            type="button"
+            className="pick-btn"
+            onClick={onOpenChatImporter}
+            aria-label="チャットログ取り込み"
+            title="チャットログ取り込み"
+          >
+            💬 取込
+          </button>
+        )}
         <button
           type="button"
           className="pick-btn"

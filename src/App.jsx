@@ -13,6 +13,7 @@ import SettingsPanel from './components/SettingsPanel.jsx';
 import HtmlRenderer from './components/HtmlRenderer.jsx';
 import JsonRenderer from './components/JsonRenderer.jsx';
 import ImageViewer from './components/ImageViewer.jsx';
+import ChatImporter from './components/ChatImporter.jsx';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
 import { useSettings } from './hooks/useSettings.js';
@@ -24,10 +25,11 @@ const SAMPLES = [
   { label: '🌐 サンプル HTML',                 url: `${import.meta.env.BASE_URL}test.html`, name: 'test.html' },
   { label: '🧾 サンプル JSON',                 url: `${import.meta.env.BASE_URL}test.json`, name: 'test.json' },
   { label: '🖼 サンプル CBZ（縦横/色味/サイズ違い 4枚）', url: `${import.meta.env.BASE_URL}test.cbz`, name: 'test.cbz' },
+  { label: '💬 サンプル チャットログ JSON（3会話）',     url: `${import.meta.env.BASE_URL}test-conversations.json`, name: 'test-conversations.json' },
 ];
 
 export default function App() {
-  // 画面 ('shelf' | 'reader')
+  // 画面 ('shelf' | 'reader' | 'chat-import')
   const [view, setView] = useState('shelf');
   const [activeEntry, setActiveEntry] = useState(null);
   const [lastFile, setLastFile] = useState(null);
@@ -153,6 +155,22 @@ export default function App() {
         onDeleteBook={deleteBook}
         onLoadSample={handleLoadSample}
         samples={SAMPLES}
+        onOpenChatImporter={() => setView('chat-import')}
+      />
+    );
+  }
+
+  // ───── チャットログ取り込み画面（§18） ─────
+  if (view === 'chat-import') {
+    return (
+      <ChatImporter
+        onCancel={() => setView('shelf')}
+        onOpenSingle={async (file) => {
+          setActiveEntry(null);
+          await loadFileAndRemember(file);
+          // 変換結果を開く（useEffect が view='reader' に遷移）
+        }}
+        saveBook={saveBook}
       />
     );
   }

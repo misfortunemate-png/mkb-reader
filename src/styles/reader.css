@@ -1016,6 +1016,55 @@ button {
   -webkit-user-drag: none;
 }
 
+/* ─────────────────────────────────────────────────────────
+   §18 チャットログ取り込み画面
+   ───────────────────────────────────────────────────────── */
+.chat-importer {
+  min-height: 100dvh;
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+}
+.chat-importer-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+.chat-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+.chat-item {
+  border-bottom: 1px solid var(--color-border);
+}
+.chat-item label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+}
+.chat-item.selected {
+  background: var(--color-code-bg);
+}
+.chat-item .chat-name {
+  flex: 1;
+  font-weight: 700;
+  color: var(--color-text);
+}
+.chat-item .chat-meta {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+
 /* §12 リサイズ進捗バッジ */
 .resize-progress {
   position: fixed;
