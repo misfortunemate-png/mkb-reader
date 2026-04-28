@@ -16,6 +16,7 @@ import ImageViewer from './components/ImageViewer.jsx';
 import ChatImporter from './components/ChatImporter.jsx';
 import RewritePanel from './components/RewritePanel.jsx';
 import ImageInserter from './components/ImageInserter.jsx';
+import ExportDialog from './components/ExportDialog.jsx';
 import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
@@ -65,6 +66,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [imageInserterOpen, setImageInserterOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // §14 読み替えルール
   const rewrite = useRewrite({
@@ -308,6 +310,18 @@ export default function App() {
             ✏
           </button>
         )}
+        {/* §16 エクスポート（mkb で activeEntry あり） */}
+        {isMkb && activeEntry && (
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => setExportOpen(true)}
+            aria-label="エクスポート"
+            title="MKBエクスポート"
+          >
+            ↓
+          </button>
+        )}
         <button
           type="button"
           className="icon-btn"
@@ -377,6 +391,17 @@ export default function App() {
           onClose={() => setImageInserterOpen(false)}
           currentChapter={currentChapter}
           onAdd={async (asset) => { rewrite.addInsertedAsset(asset); }}
+        />
+      )}
+      {/* §16 エクスポート */}
+      {isMkb && activeEntry && (
+        <ExportDialog
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          bookEntry={activeEntry}
+          defaultTitle={activeEntry.title || ''}
+          defaultAuthor={activeEntry.author || ''}
+          rewriteRules={rewrite.rules}
         />
       )}
       <SettingsPanel
