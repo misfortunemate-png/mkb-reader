@@ -716,6 +716,12 @@ button {
   color: #fff;
   border-color: var(--color-accent);
 }
+.settings-btn.danger {
+  background: #b03030;
+  color: #fff;
+  border-color: #b03030;
+}
+.settings-btn.danger:hover { background: #8a2424; }
 .settings-btn:disabled { opacity: 0.5; cursor: default; }
 .theme-swatch {
   width: 32px;

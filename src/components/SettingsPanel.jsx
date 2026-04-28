@@ -62,6 +62,9 @@ export default function SettingsPanel({
   overriddenKeys,
   resetLocalKey,
   canEditLocal,        // bookId が無い時は「この本」タブを無効化
+  // 本棚全削除（検証用）
+  bookCount = 0,
+  onDeleteAllBooks,
 }) {
   useEffect(() => {
     if (!open) return;
@@ -278,6 +281,26 @@ export default function SettingsPanel({
             >スクロール</button>
           </div>
         </Section>
+
+        {/* データ管理 — 検証用。設計思想に反する操作（破壊的）なので最下部に配置 */}
+        {onDeleteAllBooks && (
+          <Section title="データ管理（検証用）" defaultOpen={false}>
+            <div className="settings-row">
+              <span className="rw-hint" style={{ flex: 1 }}>
+                本棚: {bookCount} 件
+              </span>
+              <button
+                type="button"
+                className="settings-btn danger"
+                onClick={onDeleteAllBooks}
+                disabled={bookCount === 0}
+              >本棚を全削除</button>
+            </div>
+            <p className="rw-hint" style={{ marginTop: '0.4rem' }}>
+              IndexedDB の books ストアを空にします。元に戻せません。
+            </p>
+          </Section>
+        )}
       </div>
     </>
   );

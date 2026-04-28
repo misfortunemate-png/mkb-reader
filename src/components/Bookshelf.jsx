@@ -125,7 +125,7 @@ export default function Bookshelf({
                     <button
                       type="button"
                       className="text-sample"
-                      onClick={() => onLoadSample?.(s.url, s.name)}
+                      onClick={() => onLoadSample?.(s.url, s.name, s.kind)}
                     >
                       {s.label}
                     </button>
@@ -178,7 +178,7 @@ export default function Bookshelf({
                   <button
                     type="button"
                     className="text-sample"
-                    onClick={() => onLoadSample?.(s.url, s.name)}
+                    onClick={() => onLoadSample?.(s.url, s.name, s.kind)}
                   >
                     {s.label}
                   </button>

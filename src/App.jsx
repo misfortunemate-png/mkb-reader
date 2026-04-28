@@ -23,13 +23,14 @@ import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBooks
 import { useSettings } from './hooks/useSettings.js';
 
 // 何を: 同梱サンプル一覧
-// なぜ: ウェルカム画面から各形式（mkb / html / json / cbz）をワンタップで開けるように
+// なぜ: ウェルカム画面から各形式（mkb / html / json / cbz / chat-import）をワンタップで開く
+//   kind:'chat-import' のものは ChatImporter に直接遷移して fetch を自動実行
 const SAMPLES = [
   { label: '📚 サンプル mkb（複数チャプター）', url: `${import.meta.env.BASE_URL}test.mkb`, name: 'test.mkb' },
   { label: '🌐 サンプル HTML',                 url: `${import.meta.env.BASE_URL}test.html`, name: 'test.html' },
   { label: '🧾 サンプル JSON',                 url: `${import.meta.env.BASE_URL}test.json`, name: 'test.json' },
   { label: '🖼 サンプル CBZ（縦横/色味/サイズ違い 4枚）', url: `${import.meta.env.BASE_URL}test.cbz`, name: 'test.cbz' },
-  { label: '💬 サンプル チャットログ JSON（3会話）',     url: `${import.meta.env.BASE_URL}test-conversations.json`, name: 'test-conversations.json' },
+  { label: '💬 チャットログ取込（取込フロー：5会話）',     url: `${import.meta.env.BASE_URL}test-conversations.json`, name: 'test-conversations.json', kind: 'chat-import' },
 ];
 
 export default function App() {
@@ -44,6 +45,7 @@ export default function App() {
     loading: shelfLoading,
     saveBook,
     deleteBook,
+    deleteAllBooks,
     updateLastOpened,
     findByTitle,
     getLocalSettings,
@@ -160,8 +162,19 @@ export default function App() {
     setActiveEntry(null);
     await loadFileAndRemember(file);
   }
+  // §18 取込フロー用: ChatImporter に渡す自動ロード URL
+  const [chatImportUrl, setChatImportUrl] = useState(null);
+
   // 同梱サンプルを開く（URL 指定）
-  async function handleLoadSample(url, displayName) {
+  // 何を: kind='chat-import' のサンプルは ChatImporter 画面に遷移し、
+  //       自動 fetch して会話リストを表示する
+  // なぜ: 取り込みフローを実機で確認できるように
+  async function handleLoadSample(url, displayName, kind) {
+    if (kind === 'chat-import') {
+      setChatImportUrl(url);
+      setView('chat-import');
+      return;
+    }
     setActiveEntry(null);
     const u = url || SAMPLES[0].url;
     const n = displayName || SAMPLES[0].name;
@@ -217,11 +230,12 @@ export default function App() {
   if (view === 'chat-import') {
     return (
       <ChatImporter
-        onCancel={() => setView('shelf')}
+        autoLoadUrl={chatImportUrl}
+        onCancel={() => { setChatImportUrl(null); setView('shelf'); }}
         onOpenSingle={async (file) => {
           setActiveEntry(null);
+          setChatImportUrl(null);
           await loadFileAndRemember(file);
-          // 変換結果を開く（useEffect が view='reader' に遷移）
         }}
         saveBook={saveBook}
       />
@@ -417,6 +431,15 @@ export default function App() {
         overriddenKeys={overriddenKeys}
         resetLocalKey={resetLocalKey}
         canEditLocal={!!activeEntry?.id}
+        bookCount={books?.length || 0}
+        onDeleteAllBooks={async () => {
+          if (!books?.length) return;
+          if (confirm(`本棚の ${books.length} 件をすべて削除します。元に戻せません。よろしいですか？`)) {
+            await deleteAllBooks();
+            setActiveEntry(null);
+            alert('本棚を空にしました');
+          }
+        }}
       />
     </div>
   );

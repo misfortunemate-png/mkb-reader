@@ -1,8 +1,8 @@
 // 何を: Claude.ai conversations.json を読み込み、会話を選択して mkb に変換する画面
 // なぜ: 仕様書 Phase 3b §18 — チャットログを「読み替え可能な原本」に取り込む入口
 
-import { useMemo, useRef, useState } from 'react';
-import { parseConversationsJson, conversationToMkbData, conversationToBookEntry, mkbDataToZipBuffer } from '../utils/chatConverter.js';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { parseConversationsJson, conversationToMkbData, conversationToBookEntry, mkbDataToZipBuffer, isReadableConversation } from '../utils/chatConverter.js';
 
 function fmtDate(s) {
   if (!s) return '';
@@ -18,9 +18,11 @@ export default function ChatImporter({
   onCancel,            // () => void: キャンセル（本棚に戻る）
   onOpenSingle,        // (file: File) => void: 1 つだけ変換してビューアで開く
   saveBook,            // (BookEntry) => Promise<void>: 一括保存
+  autoLoadUrl,         // ?: マウント時に fetch して会話リストを表示する
 }) {
   const inputRef = useRef(null);
   const [conversations, setConversations] = useState(null);
+  const [skippedCount, setSkippedCount] = useState(0);
   const [selected, setSelected] = useState(new Set());
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -32,6 +34,42 @@ export default function ChatImporter({
   function handlePickClick() {
     inputRef.current?.click();
   }
+  // 何を: autoLoadUrl が指定されたらマウント時に fetch して取り込みフローへ
+  // なぜ: ウェルカム画面のサンプル JSON ボタンから取り込み体験を直接試せるように
+  useEffect(() => {
+    if (!autoLoadUrl) return;
+    let cancelled = false;
+    (async () => {
+      setError(null);
+      setLoading(true);
+      try {
+        const res = await fetch(autoLoadUrl);
+        if (!res.ok) throw new Error(`fetch ${autoLoadUrl} failed: ${res.status}`);
+        const text = await res.text();
+        if (cancelled) return;
+        ingestText(text);
+      } catch (e2) {
+        if (cancelled) return;
+        console.error(e2);
+        setError(e2.message || String(e2));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoLoadUrl]);
+
+  // 何を: テキストから会話リストを生成し、読めない項目をフィルタリング
+  // なぜ: メモリ・プロジェクト・空 stub が混じるのを排除（仕様: 会話だけ確実に読める）
+  function ingestText(text) {
+    const all = parseConversationsJson(text);
+    const readable = all.filter(isReadableConversation);
+    setConversations(readable);
+    setSkippedCount(all.length - readable.length);
+    setSelected(new Set(readable.map((c) => c.uuid)));
+  }
+
   async function handlePickChange(e) {
     const f = e.target.files?.[0];
     e.target.value = '';
@@ -40,14 +78,12 @@ export default function ChatImporter({
     setLoading(true);
     try {
       const text = await f.text();
-      const list = parseConversationsJson(text);
-      setConversations(list);
-      // デフォルトは全選択
-      setSelected(new Set(list.map((c) => c.uuid)));
+      ingestText(text);
     } catch (e2) {
       console.error(e2);
       setError(e2.message || String(e2));
       setConversations(null);
+      setSkippedCount(0);
     } finally {
       setLoading(false);
     }
@@ -146,7 +182,14 @@ export default function ChatImporter({
       {conversations && (
         <>
           <div className="chat-importer-toolbar">
-            <span>{selectedCount} / {total} 選択中</span>
+            <span>
+              {selectedCount} / {total} 選択中
+              {skippedCount > 0 && (
+                <span className="rw-hint" style={{ marginLeft: '0.5rem' }}>
+                  （{skippedCount} 件スキップ：会話以外）
+                </span>
+              )}
+            </span>
             <button type="button" className="settings-btn" onClick={selectAll}>すべて選択</button>
             <button type="button" className="settings-btn" onClick={selectNone}>選択解除</button>
             <div className="toggle" style={{ marginLeft: 'auto' }}>

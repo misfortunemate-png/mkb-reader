@@ -133,6 +133,15 @@ export function useBookshelf() {
     await refresh();
   }, [refresh]);
 
+  // 何を: 本棚の全エントリーを削除
+  // なぜ: 設計思想に反するが、検証中の利便性のため設定から呼ぶ。
+  //   呼び出し側で confirm() を入れる責務（誤操作防止）
+  const deleteAllBooks = useCallback(async () => {
+    const db = dbRef.current; if (!db) return;
+    await awaitReq(tx(db, 'readwrite').clear());
+    await refresh();
+  }, [refresh]);
+
   const updateLastOpened = useCallback(async (id) => {
     const db = dbRef.current; if (!db) return;
     const store = tx(db, 'readwrite');
@@ -183,6 +192,7 @@ export function useBookshelf() {
     getBook,
     getAllBooks,
     deleteBook,
+    deleteAllBooks,
     updateLastOpened,
     findByTitle,
     getLocalSettings,

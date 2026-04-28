@@ -15,8 +15,56 @@ import yaml from 'js-yaml';
 
 // ───── 入力 JSON のパース ─────
 
+// 何を: 1 メッセージ内の「文字列化できる本文」を取り出す（content[] / text 両対応）
+// なぜ: 後段の isReadableConversation が「実質的に読める内容があるか」を判定するため
+function extractMessageText(m) {
+  if (!m || typeof m !== 'object') return '';
+  if (typeof m.text === 'string' && m.text.trim()) return m.text.trim();
+  if (Array.isArray(m.content)) {
+    const parts = [];
+    for (const b of m.content) {
+      if (!b) continue;
+      if (typeof b === 'string') { parts.push(b); continue; }
+      if (typeof b.text === 'string') parts.push(b.text);
+      if (typeof b.thinking === 'string') parts.push(b.thinking);
+    }
+    return parts.join('').trim();
+  }
+  if (typeof m.content === 'string') return m.content.trim();
+  return '';
+}
+
+// 何を: 「ビューアで読める会話」かを判定
+// なぜ: Claude.ai のエクスポート JSON にはメモリ・プロジェクト・空 stub
+//   等が同居することがあり、これらを取り込むと中身ナシのエントリーが本棚を汚す。
+//   設計思想: 「会話だけを確実に読めるようにする」を最優先
+//
+// 判定基準:
+//   1. chat_messages（または messages）が配列で 1 件以上ある
+//   2. そのうち少なくとも 1 件が非空の本文を持つ（テキスト or thinking 等）
+//   3. sender が 'human' / 'assistant' / 'user' のいずれかを少なくとも 1 件含む
+//      → メモリやシステムだけのレコードを排除
+export function isReadableConversation(c) {
+  if (!c || typeof c !== 'object') return false;
+  const msgs = Array.isArray(c.chat_messages) ? c.chat_messages
+    : Array.isArray(c.messages) ? c.messages
+    : null;
+  if (!msgs || msgs.length === 0) return false;
+  let hasContent = false;
+  let hasDialogue = false;
+  for (const m of msgs) {
+    const sender = String(m?.sender || m?.role || '').toLowerCase();
+    if (sender === 'human' || sender === 'assistant' || sender === 'user') hasDialogue = true;
+    if (extractMessageText(m).length > 0) hasContent = true;
+    if (hasContent && hasDialogue) return true;
+  }
+  return false;
+}
+
 // 何を: conversations.json の中身を寛容に取り出す
-// なぜ: トップレベルが配列でない（{ conversations: [...] } のような）変形にも対応
+// なぜ: トップレベルが配列でない（{ conversations: [...] } のような）変形にも対応。
+//   メモリ／プロジェクトなど「会話以外のレコード」を除外する責務はここではなく、
+//   呼び出し側（ChatImporter）で isReadableConversation を使って分離する
 export function parseConversationsJson(text) {
   let data;
   try {
@@ -37,6 +85,7 @@ export function parseConversationsJson(text) {
     created_at: c.created_at || c.createdAt || null,
     updated_at: c.updated_at || c.updatedAt || null,
     model: c.model || '',
+    current_leaf_message_uuid: c.current_leaf_message_uuid || c.current_leaf || c.leaf_message_uuid || null,
     chat_messages: Array.isArray(c.chat_messages) ? c.chat_messages
       : Array.isArray(c.messages) ? c.messages
       : [],
