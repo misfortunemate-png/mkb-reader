@@ -34,7 +34,11 @@ export default defineConfig({
       workbox: {
         // 何を: アプリシェル一式 + 同梱の test.mkb を precache
         // なぜ: オフラインで test.mkb を開いて検証できるように
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2,mkb,json,cbz}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2,mkb,json}'],
+        // 何を: 大きい sample（test.cbz）は precache から除外
+        // なぜ: workbox のデフォルト上限 2MB を超えるため、初回 visit のダウンロード負荷も
+        //       考慮して runtimeCaching で「見たときだけ取得・キャッシュ」する
+        globIgnores: ['**/test.cbz'],
         navigateFallback: '/mkb-reader/index.html',
         // 何を: 新しい SW を即座にアクティブ化し、既存タブにも反映する
         // なぜ: 既定の autoUpdate では新 SW が waiting 状態で止まり、
@@ -58,6 +62,17 @@ export default defineConfig({
             options: {
               cacheName: 'google-fonts-woff2',
               expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
+          {
+            // 何を: 大きいサンプル（test.cbz）を runtime にキャッシュ
+            // なぜ: precache から除外したぶん、ユーザーが一度開けばオフラインでも見られるようにする
+            urlPattern: /\/test\.cbz$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'sample-large',
+              expiration: { maxEntries: 4, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
             },
           },
         ],

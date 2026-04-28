@@ -23,7 +23,7 @@ const SAMPLES = [
   { label: '📚 サンプル mkb（複数チャプター）', url: `${import.meta.env.BASE_URL}test.mkb`, name: 'test.mkb' },
   { label: '🌐 サンプル HTML',                 url: `${import.meta.env.BASE_URL}test.html`, name: 'test.html' },
   { label: '🧾 サンプル JSON',                 url: `${import.meta.env.BASE_URL}test.json`, name: 'test.json' },
-  { label: '🖼 サンプル CBZ（5枚画像）',        url: `${import.meta.env.BASE_URL}test.cbz`, name: 'test.cbz' },
+  { label: '🖼 サンプル CBZ（縦横/色味/サイズ違い 4枚）', url: `${import.meta.env.BASE_URL}test.cbz`, name: 'test.cbz' },
 ];
 
 export default function App() {

@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "build:test-mkb": "node scripts/build-test-mkb.mjs",
-    "predev": "node scripts/build-test-mkb.mjs",
-    "prebuild": "node scripts/build-test-mkb.mjs",
+    "build:test-cbz": "node scripts/build-test-cbz.mjs",
+    "predev": "node scripts/build-test-mkb.mjs && node scripts/build-test-cbz.mjs",
+    "prebuild": "node scripts/build-test-mkb.mjs && node scripts/build-test-cbz.mjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
