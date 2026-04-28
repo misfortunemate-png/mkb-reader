@@ -7,6 +7,8 @@
 // ビューア本体（§1〜§4）と本棚UIの結合点はこのインターフェースのみ。
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import JSZip from 'jszip';
+import { resizeImage, resizeImagesInZip } from './useImageResize.js';
 
 const DB_NAME = 'mkb-reader';
 const DB_VERSION = 1;
@@ -43,6 +45,8 @@ function awaitReq(req) {
 export function useBookshelf() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
+  // §12 リサイズ進捗（保存中のファイルのみ。null = 進行中なし）
+  const [resizeProgress, setResizeProgress] = useState(null);
   const dbRef = useRef(null);
 
   const refresh = useCallback(async () => {
@@ -74,10 +78,41 @@ export function useBookshelf() {
 
   // ───── 安定IF（差替不可） ─────
 
+  // 何を: BookEntry を保存する。保存前に画像リサイズを適用
+  // なぜ: 仕様書 §12 — 長辺 2048px 超を縮める。mkb/cbz/zip は ZIP 展開→各画像処理→再ZIP化、
+  //       単体画像は単純にリサイズ。閲覧のみの画像（ImageViewer の File[]）は本棚保存しない経路。
   const saveBook = useCallback(async (entry) => {
     const db = dbRef.current; if (!db) throw new Error('db not ready');
-    await awaitReq(tx(db, 'readwrite').put(entry));
-    await refresh();
+    try {
+      const e = { ...entry };
+      const t = e.fileType;
+      if (t === 'mkb' || t === 'cbz' || t === 'zip') {
+        // ZIP を展開して内部画像を順にリサイズ
+        const zip = await JSZip.loadAsync(e.fileData);
+        const total = zip.file(/\.(jpe?g|png|gif|webp|avif|bmp)$/i).length;
+        if (total > 0) {
+          setResizeProgress({ done: 0, total });
+          await resizeImagesInZip(zip, (done, t, name) => {
+            setResizeProgress({ done, total: t, current: name });
+          });
+          // 再 ZIP 化
+          const buf = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+          e.fileData = buf;
+        }
+      } else if (['jpg', 'png', 'gif', 'webp', 'avif', 'bmp'].includes(t)) {
+        // 単体画像
+        const mime = MIME_BY_TYPE[t] || 'image/png';
+        const inputBlob = new Blob([e.fileData], { type: mime });
+        setResizeProgress({ done: 0, total: 1 });
+        const out = await resizeImage(inputBlob);
+        e.fileData = await out.arrayBuffer();
+        setResizeProgress({ done: 1, total: 1 });
+      }
+      await awaitReq(tx(db, 'readwrite').put(e));
+      await refresh();
+    } finally {
+      setResizeProgress(null);
+    }
   }, [refresh]);
 
   const getBook = useCallback(async (id) => {
@@ -153,6 +188,7 @@ export function useBookshelf() {
     getLocalSettings,
     saveLocalSettings,
     refresh,
+    resizeProgress,
   };
 }
 

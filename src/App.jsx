@@ -35,6 +35,7 @@ export default function App() {
     findByTitle,
     getLocalSettings,
     saveLocalSettings,
+    resizeProgress,
   } = useBookshelf();
 
   // §5 §6 §7 + §4.6 二層: 開いている本の id を渡してローカル設定を有効化
@@ -249,6 +250,12 @@ export default function App() {
         <ImageViewer images={content.images} swipeDirection={settings.swipeDirection} />
       )}
 
+      {/* §12 リサイズ進捗 */}
+      {resizeProgress && (
+        <div className="resize-progress" role="status" aria-live="polite">
+          {resizeProgress.done} / {resizeProgress.total} 画像を処理中…
+        </div>
+      )}
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

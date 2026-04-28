@@ -51,17 +51,52 @@ export function usePagination({ frameRef, trackRef, enabled, deps }) {
   }, [enabled, frameRef, recalc]);
 
   // 依存が変わったら再計算（チャプター切替など）
+  // 何を: フォントと画像の読み込みを待ってから再計算
+  // なぜ: 仕様書 §13 — フォント変更・画像 load 後にページ数がずれる問題への対策
   useEffect(() => {
     if (!enabled) return;
-    // 画像ロード完了後にも再計算したいので少し待つ
-    const t1 = requestAnimationFrame(recalc);
-    const t2 = setTimeout(recalc, 250);
+    let cancelled = false;
+    const handles = [];
+    const safeRecalc = () => { if (!cancelled) recalc(); };
+    // 即時 + フォント完了待ち + 画像 load 待ち（タイムアウト 5 秒）
+    handles.push(requestAnimationFrame(safeRecalc));
+    handles.push(setTimeout(safeRecalc, 250));
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(safeRecalc).catch(() => {});
+    }
+    const track = trackRef.current;
+    if (track) {
+      const imgs = Array.from(track.querySelectorAll('img'));
+      const pending = imgs.filter((i) => !i.complete);
+      if (pending.length) {
+        const onLoad = () => safeRecalc();
+        pending.forEach((i) => {
+          i.addEventListener('load', onLoad, { once: true });
+          i.addEventListener('error', onLoad, { once: true });
+        });
+        // タイムアウト
+        const to = setTimeout(safeRecalc, 5000);
+        handles.push(to);
+      }
+    }
     return () => {
-      cancelAnimationFrame(t1);
-      clearTimeout(t2);
+      cancelled = true;
+      handles.forEach((h) => {
+        if (typeof h === 'number') { clearTimeout(h); cancelAnimationFrame(h); }
+      });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, ...(deps || [])]);
+
+  // 何を: フォントが入れ替わったら再計算（仕様書 §13）
+  // なぜ: useSettings.font の変更で <link> 差替→フォント再ロードが起きるため
+  useEffect(() => {
+    if (!enabled) return;
+    if (!document.fonts || !document.fonts.addEventListener) return;
+    function onChange() { recalc(); }
+    document.fonts.addEventListener('loadingdone', onChange);
+    return () => document.fonts.removeEventListener('loadingdone', onChange);
+  }, [enabled, recalc]);
 
   // チャプター切替時はページ0へ戻す
   useEffect(() => {
