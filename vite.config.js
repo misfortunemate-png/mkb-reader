@@ -35,9 +35,12 @@ export default defineConfig({
         // 何を: アプリシェル一式 + 同梱の test.mkb を precache
         // なぜ: オフラインで test.mkb を開いて検証できるように
         globPatterns: ['**/*.{js,css,html,svg,png,woff2,mkb}'],
-        // 何を: precache 対象から除外するパターン
-        // なぜ: Service Worker 自体や開発専用ファイルを precache しない
         navigateFallback: '/mkb-reader/index.html',
+        // 何を: 新しい SW を即座にアクティブ化し、既存タブにも反映する
+        // なぜ: 既定の autoUpdate では新 SW が waiting 状態で止まり、
+        //       全タブを閉じるまで反映されない。検証中の体感更新を確実にする
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             // Google Fonts CSS のキャッシュ（仕様書 §9）

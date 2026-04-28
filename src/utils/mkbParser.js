@@ -9,6 +9,44 @@ function extractFirstH1(md) {
   return m ? m[1].trim() : null;
 }
 
+// 何を: 「---」が直前の段落と setext heading として解釈されるのを抑制する
+// なぜ: 日本語作者は段落区切りに空行を使わず単改行で続ける癖があり、
+//       その下に「---」を thematic break として置くと、CommonMark の規則で
+//       直前の段落全体が h2 化してしまう（setext heading 構文）。
+//       仕様書 Phase 2 §7 で「---」は thematic break として使うことが明示されているので、
+//       書き手の意図を尊重し、setext と解釈されないように直前に空行を挿入する。
+//
+// 適用範囲:
+//   - 「---」「===」だけからなる行（前後空白可）
+//   - 直前の行が空行でない場合に、空行を1つ挿入
+//   - コードブロック内（```で囲まれた範囲）は対象外
+function normalizeThematicBreaks(md) {
+  const lines = md.split(/\r?\n/);
+  const out = [];
+  let inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    // コードフェンス検出（```...``` または ~~~...~~~）
+    if (/^\s{0,3}(```|~~~)/.test(line)) {
+      inFence = !inFence;
+      out.push(line);
+      continue;
+    }
+    if (inFence) { out.push(line); continue; }
+    // setext 候補: --- もしくは === のみ
+    const setextLike = /^\s{0,3}(-{3,}|={3,})\s*$/.test(line);
+    if (setextLike) {
+      const prev = out[out.length - 1];
+      // 直前が非空行 → 空行を挿入し、setext heading 化を回避
+      if (prev !== undefined && prev.trim() !== '') {
+        out.push('');
+      }
+    }
+    out.push(line);
+  }
+  return out.join('\n');
+}
+
 // MD内の画像参照 ![alt](path) のパスを Blob URL に置換
 // 仕様書 §1: assets 内のファイルは MD 内の相対パス（assets/... または ../assets/...）で参照される前提
 export function rewriteAssetPaths(md, assetsMap) {
@@ -89,7 +127,7 @@ export async function parseMkbZip(zip, fallbackTitle = 'Untitled') {
 
   // 5) チャプター順序の決定
   const chapters = [];
-  const indexRewritten = rewriteAssetPaths(indexContent, assetsMap);
+  const indexRewritten = rewriteAssetPaths(normalizeThematicBreaks(indexContent), assetsMap);
   chapters.push({
     id: 'index',
     title: extractFirstH1(indexContent) || metadata.title || 'index',
@@ -115,7 +153,7 @@ export async function parseMkbZip(zip, fallbackTitle = 'Untitled') {
     chapters.push({
       id: name.replace(/\.md$/i, ''),
       title: extractFirstH1(content) || name.replace(/\.md$/i, ''),
-      content: rewriteAssetPaths(content, assetsMap),
+      content: rewriteAssetPaths(normalizeThematicBreaks(content), assetsMap),
       order: i + 1,
     });
   });
@@ -130,7 +168,7 @@ export function buildSingleMdMkb(text, fileName = 'document.md') {
   return {
     metadata: { title },
     chapters: [
-      { id: 'index', title, content: text, order: 0 },
+      { id: 'index', title, content: normalizeThematicBreaks(text), order: 0 },
     ],
     assets: new Map(),
   };
