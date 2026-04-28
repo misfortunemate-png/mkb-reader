@@ -26,6 +26,8 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      # 何を: vite-plugin-pwa との peer 不一致を許容してインストール
+      # なぜ: Vite 8 と plugin の peer 宣言（^7）の差。.npmrc で legacy-peer-deps=true
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
