@@ -249,6 +249,21 @@ export default function SettingsPanel({
           </div>
         </Section>
 
+        <Section title="読み替えハイライト" overridden={isOverridden('rewriteHighlight')} onReset={onResetKey('rewriteHighlight')}>
+          <div className="toggle">
+            <button
+              type="button"
+              className={settings.rewriteHighlight ? 'active' : ''}
+              onClick={() => update({ rewriteHighlight: true })}
+            >表示</button>
+            <button
+              type="button"
+              className={!settings.rewriteHighlight ? 'active' : ''}
+              onClick={() => update({ rewriteHighlight: false })}
+            >非表示</button>
+          </div>
+        </Section>
+
         <Section title="表示モード" overridden={isOverridden('mode')} onReset={onResetKey('mode')}>
           <div className="toggle">
             <button

@@ -13,6 +13,9 @@ export default function Paginator({
   swipeDirection = 'horizontal',
   hrStyle = 'page-break',
   imageDisplayMode = 'balance',
+  rewriteRules,
+  rewriteHighlight = true,
+  insertedAssetUrl,
 }) {
   const enabled = mode === 'page';
   const frameRef = useRef(null);
@@ -116,6 +119,9 @@ export default function Paginator({
             onWikiLinkClick={onWikiLinkClick}
             hrStyle={hrStyle}
             imageDisplayMode={imageDisplayMode}
+            rewriteRules={rewriteRules}
+            rewriteHighlight={rewriteHighlight}
+            insertedAssetUrl={insertedAssetUrl}
           />
         </div>
       </div>

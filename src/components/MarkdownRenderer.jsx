@@ -6,8 +6,10 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkWikiLink from 'remark-wiki-link';
+import rehypeRaw from 'rehype-raw';
 import { useMemo, useState } from 'react';
 import { IMAGE_DISPLAY_THRESHOLDS } from '../hooks/useSettings.js';
+import { applyRewrite } from '../utils/rewriteEngine.js';
 
 // 画像のサイズ比率からクラスを決める
 // 何を: 長辺 / viewportWidth と imageDisplayMode に応じて 'img-inline'|'img-block'|'img-fullpage' を返す
@@ -55,6 +57,11 @@ function ImageModal({ image, onClose }) {
 
 export default function MarkdownRenderer({
   chapter, chapters, onWikiLinkClick, hrStyle = 'page-break', imageDisplayMode = 'balance',
+  // §14 読み替え
+  rewriteRules,
+  rewriteHighlight = true,
+  // §15 画像差し込みの URL 解決関数（インスタンス（Blob URL）or assets 相対パス）
+  insertedAssetUrl,
 }) {
   const [modal, setModal] = useState(null);
 
@@ -87,6 +94,16 @@ export default function MarkdownRenderer({
     );
   }
 
+  // 何を: 描画前に読み替えルールを適用する
+  // なぜ: 仕様書 §14 — 読み替えは描画直前。原本（chapter.content）は変更しない
+  const renderedMd = useMemo(() => {
+    if (!rewriteRules) return chapter?.content || '';
+    return applyRewrite(chapter?.content || '', rewriteRules, chapter?.id || 'index', {
+      highlight: rewriteHighlight,
+      assetUrlOf: insertedAssetUrl,
+    });
+  }, [chapter?.content, chapter?.id, rewriteRules, rewriteHighlight, insertedAssetUrl]);
+
   return (
     <div className="markdown">
       <ReactMarkdown
@@ -94,6 +111,11 @@ export default function MarkdownRenderer({
           remarkGfm,
           [remarkWikiLink, { permalinks, pageResolver, hrefTemplate, aliasDivider: '|' }],
         ]}
+        // 何を: rehype-raw で <mark class="rewritten"> 等のインライン HTML を描画許可
+        // なぜ: §14 の読み替えハイライトを <mark> タグで表現する。
+        //       sandbox 対象外（同一 React ツリー内）なので XSS リスクは
+        //       「ユーザーが自分で入力した display 文字列」に限定される
+        rehypePlugins={[rehypeRaw]}
         urlTransform={(url) => {
           if (typeof url !== 'string') return url;
           if (url.startsWith('blob:') || url.startsWith('#') || url.startsWith('data:image/')) return url;
@@ -146,7 +168,7 @@ export default function MarkdownRenderer({
           },
         }}
       >
-        {chapter?.content || ''}
+        {renderedMd}
       </ReactMarkdown>
       <ImageModal image={modal} onClose={() => setModal(null)} />
     </div>

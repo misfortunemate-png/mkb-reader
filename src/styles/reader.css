@@ -1065,6 +1065,80 @@ button {
   color: var(--color-text-secondary);
 }
 
+/* ─────────────────────────────────────────────────────────
+   §14 読み替えパネル / ハイライト
+   ───────────────────────────────────────────────────────── */
+.rw-row, .rw-rep, .rw-range {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.4rem 0;
+}
+.rw-label { min-width: 4em; font-size: 0.9rem; }
+.rw-arrow { color: var(--color-text-secondary); font-size: 0.9rem; }
+.rw-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
+.rw-num {
+  width: 4em;
+  padding: 0.35rem 0.45rem;
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text);
+  font-family: var(--font-code);
+  font-size: 0.9rem;
+}
+.rw-hint { font-size: 0.8rem; color: var(--color-text-secondary); }
+.rw-x {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  font-size: 0.95rem;
+}
+.rw-x:hover { color: #b03030; }
+.rw-empty { font-size: 0.85rem; color: var(--color-text-secondary); margin: 0.4rem 0 0; }
+.rw-list { display: flex; flex-direction: column; gap: 0.25rem; }
+.rw-sec-header { display: flex; align-items: center; gap: 0.4rem; }
+.rw-preview {
+  margin: 0.4rem 0 0;
+  max-height: 30vh;
+  overflow: auto;
+  padding: 0.4rem;
+  background: var(--color-code-bg);
+  border-radius: 4px;
+  font-family: var(--font-code);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.rw-prev-line { display: flex; gap: 0.6rem; white-space: pre-wrap; }
+.rw-prev-num {
+  display: inline-block;
+  min-width: 2.5em;
+  text-align: right;
+  color: var(--color-text-secondary);
+  user-select: none;
+}
+.rw-prev-text { flex: 1; word-break: break-all; }
+
+/* §14 読み替えハイライト */
+.markdown mark.rewritten {
+  background: rgba(196, 149, 106, 0.32);
+  color: inherit;
+  padding: 0 0.1em;
+  border-radius: 2px;
+}
+
 /* §12 リサイズ進捗バッジ */
 .resize-progress {
   position: fixed;

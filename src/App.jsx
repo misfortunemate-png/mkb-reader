@@ -14,6 +14,8 @@ import HtmlRenderer from './components/HtmlRenderer.jsx';
 import JsonRenderer from './components/JsonRenderer.jsx';
 import ImageViewer from './components/ImageViewer.jsx';
 import ChatImporter from './components/ChatImporter.jsx';
+import RewritePanel from './components/RewritePanel.jsx';
+import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
 import { useSettings } from './hooks/useSettings.js';
@@ -60,6 +62,14 @@ export default function App() {
   const [currentId, setCurrentId] = useState(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [rewriteOpen, setRewriteOpen] = useState(false);
+
+  // §14 読み替えルール
+  const rewrite = useRewrite({
+    activeBookId: activeEntry?.id,
+    getLocalSettings,
+    saveLocalSettings,
+  });
 
   // 何を: コンテンツが読み込まれたらビューア画面へ遷移
   // なぜ: ViewerContent 抽象化（Phase 3a §10〜§11）— mkb 以外も view='reader' で扱う
@@ -245,6 +255,18 @@ export default function App() {
         >
           {isSaved ? '★' : '☆'}
         </button>
+        {/* §14 読み替え（mkb のみ） */}
+        {isMkb && activeEntry && (
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => setRewriteOpen(true)}
+            aria-label="読み替え"
+            title="読み替え"
+          >
+            ✏
+          </button>
+        )}
         <button
           type="button"
           className="icon-btn"
@@ -267,6 +289,8 @@ export default function App() {
           swipeDirection={settings.swipeDirection}
           hrStyle={settings.hrStyle}
           imageDisplayMode={settings.imageDisplayMode}
+          rewriteRules={rewrite.rules}
+          rewriteHighlight={settings.rewriteHighlight}
         />
       )}
       {content.type === 'html' && (
@@ -284,6 +308,22 @@ export default function App() {
         <div className="resize-progress" role="status" aria-live="polite">
           {resizeProgress.done} / {resizeProgress.total} 画像を処理中…
         </div>
+      )}
+      {/* §14 読み替えパネル */}
+      {isMkb && (
+        <RewritePanel
+          open={rewriteOpen}
+          onClose={() => setRewriteOpen(false)}
+          rules={rewrite.rules}
+          setSpeakerName={rewrite.setSpeakerName}
+          addReplacement={rewrite.addReplacement}
+          updateReplacement={rewrite.updateReplacement}
+          removeReplacement={rewrite.removeReplacement}
+          addHiddenRange={rewrite.addHiddenRange}
+          updateHiddenRange={rewrite.updateHiddenRange}
+          removeHiddenRange={rewrite.removeHiddenRange}
+          currentChapter={currentChapter}
+        />
       )}
       <SettingsPanel
         open={settingsOpen}

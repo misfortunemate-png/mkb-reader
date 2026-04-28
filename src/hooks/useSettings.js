@@ -45,6 +45,8 @@ export const DEFAULTS = {
   mode: 'page',        // 'page' | 'scroll' （Phase 1 で先行実装した key を統合）
   // §11 MD 内画像の表示モード判定プリセット
   imageDisplayMode: 'balance',  // 'text-first' | 'balance' | 'image-first'
+  // §14 読み替え箇所のハイライト表示（薄背景色）
+  rewriteHighlight: true,
 };
 
 // §11: 画像表示プリセットの閾値（仕様書 §11 表）
