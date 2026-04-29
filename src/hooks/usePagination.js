@@ -3,10 +3,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export function usePagination({ frameRef, trackRef, enabled, deps }) {
+export function usePagination({ frameRef, trackRef, enabled, deps, initialPage }) {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(1);
   const [pageWidth, setPageWidth] = useState(0);
+  // §26: 次の recalc で一度だけ適用するページ番号（適用後 null に戻す）
+  const pendingInitialPageRef = useRef(null);
 
   // ページ数再計算（リサイズ・コンテンツ変更時）
   const recalc = useCallback(() => {
@@ -32,7 +34,14 @@ export function usePagination({ frameRef, trackRef, enabled, deps }) {
     const sw = track.scrollWidth;
     const t = Math.max(1, Math.ceil(sw / w));
     setTotal(t);
-    setPage((p) => Math.min(p, t - 1));
+    // §26: pendingInitialPage があれば適用（最終ページへのフォールバック含む）
+    if (pendingInitialPageRef.current !== null) {
+      const target = Math.min(pendingInitialPageRef.current, t - 1);
+      pendingInitialPageRef.current = null;
+      setPage(target);
+    } else {
+      setPage((p) => Math.min(p, t - 1));
+    }
   }, [frameRef, trackRef, enabled]);
 
   // ResizeObserver でフレームサイズ変更を監視
@@ -98,8 +107,9 @@ export function usePagination({ frameRef, trackRef, enabled, deps }) {
     return () => document.fonts.removeEventListener('loadingdone', onChange);
   }, [enabled, recalc]);
 
-  // チャプター切替時はページ0へ戻す
+  // チャプター切替時はページ0へ戻す（§26: initialPage があれば次のrecalcで適用）
   useEffect(() => {
+    pendingInitialPageRef.current = (initialPage != null && initialPage > 0) ? initialPage : null;
     setPage(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...(deps || [])]);

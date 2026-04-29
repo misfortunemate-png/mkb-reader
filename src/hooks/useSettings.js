@@ -25,10 +25,23 @@ export const FONTS = {
   },
 };
 
-// 欧文ペアリング（仕様書 §5 — Cormorant Garamond を仮採用）
-export const PAIRING = {
-  family: "'Cormorant Garamond'",
-  href: 'https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;700&display=swap',
+// §25 欧文フォント選択肢（仕様書 §25 — PAIRING を廃止し LATIN_FONTS に統一）
+export const LATIN_FONTS = {
+  'eb-garamond': {
+    label: 'EB Garamond',
+    family: "'EB Garamond'",
+    href: 'https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;700&display=swap',
+  },
+  'libre-baskerville': {
+    label: 'Libre Baskerville',
+    family: "'Libre Baskerville'",
+    href: 'https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&display=swap',
+  },
+  'lora': {
+    label: 'Lora',
+    family: "'Lora'",
+    href: 'https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap',
+  },
 };
 
 export const THEMES = ['light', 'dark', 'sepia'];
@@ -47,6 +60,12 @@ export const DEFAULTS = {
   imageDisplayMode: 'balance',  // 'text-first' | 'balance' | 'image-first'
   // §14 読み替え箇所のハイライト表示（薄背景色）
   rewriteHighlight: true,
+  // §24 タップゾーン（ページ送り領域の制限）
+  tapZone: { preset: 'bottom-corners', height: 80, width: 30 },
+  // §25 欧文フォント
+  latinFont: 'eb-garamond',
+  // §23 ヘッダー高さ（px）— アイコンサイズに連動
+  headerHeight: 48,
 };
 
 // §11: 画像表示プリセットの閾値（仕様書 §11 表）
@@ -129,13 +148,16 @@ function applyToDocument(s) {
   root.setAttribute('data-theme', s.theme);
   // §5 フォント（本文ファミリー）
   const f = FONTS[s.font] || FONTS[DEFAULTS.font];
-  // 仕様書 §5 — 欧文を先頭に置いて、和文を後置（欧文部分だけ別フォントを当てる）
-  const stack = `${PAIRING.family}, ${f.family}, 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  // §25 欧文フォント — 欧文を先頭に置いて、和文を後置（欧文部分だけ別フォントを当てる）
+  const lf = LATIN_FONTS[s.latinFont] || LATIN_FONTS[DEFAULTS.latinFont];
+  const stack = `${lf.family}, ${f.family}, 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
   root.style.setProperty('--font-body', stack);
   // §7 カスタマイズ
   root.style.setProperty('--font-size', `${s.fontSize}px`);
   root.style.setProperty('--line-height', String(s.lineHeight));
   root.style.setProperty('--content-padding', `${s.contentPadding}rem`);
+  // §23 ヘッダー高さ
+  root.style.setProperty('--header-h', `${s.headerHeight ?? 48}px`);
 }
 
 // ───── フック本体 ─────
@@ -191,17 +213,18 @@ export function useSettings({ activeBookId, getLocalSettings, saveLocalSettings 
     applyToDocument(effective);
   }, [effective]);
 
-  // フォント link の動的ロード/アンロード（実効値で判定）
+  // §25 フォント link の動的ロード/アンロード（日本語・欧文とも実効値で判定）
   useEffect(() => {
     if (!initialMounted.current) {
       removeStaticFontLinks();
       initialMounted.current = true;
     }
     const f = FONTS[effective.font] || FONTS[DEFAULTS.font];
+    const lf = LATIN_FONTS[effective.latinFont] || LATIN_FONTS[DEFAULTS.latinFont];
     ensureFontLink(f.href, effective.font);
-    ensureFontLink(PAIRING.href, 'pairing');
-    removeFontLinks([effective.font, 'pairing']);
-  }, [effective.font]);
+    ensureFontLink(lf.href, `latin-${effective.latinFont}`);
+    removeFontLinks([effective.font, `latin-${effective.latinFont}`]);
+  }, [effective.font, effective.latinFont]);
 
   // ───── 公開 API ─────
 

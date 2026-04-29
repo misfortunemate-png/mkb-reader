@@ -29,6 +29,8 @@ export default function ChatImporter({
   // 何を: ツリー構造の扱いを切替
   // なぜ: 既定は active（編集後の最終分岐のみ）。デバッグ等で全分岐見たい場合は all
   const [branchMode, setBranchMode] = useState('active');
+  const [filterText, setFilterText] = useState('');
+  const [progress, setProgress] = useState(null); // null | { done: number, total: number }
 
   // ───── ファイル選択 ─────
   function handlePickClick() {
@@ -68,6 +70,8 @@ export default function ChatImporter({
     setConversations(readable);
     setSkippedCount(all.length - readable.length);
     setSelected(new Set(readable.map((c) => c.uuid)));
+    setFilterText('');
+    setProgress(null);
   }
 
   async function handlePickChange(e) {
@@ -106,6 +110,17 @@ export default function ChatImporter({
     setSelected(new Set());
   }
 
+  // フィルタ後リスト
+  const filteredConversations = useMemo(() => {
+    if (!conversations) return [];
+    if (!filterText.trim()) return conversations;
+    const q = filterText.toLowerCase();
+    return conversations.filter((c) => {
+      const name = (c.name || '').toLowerCase();
+      return name.includes(q);
+    });
+  }, [conversations, filterText]);
+
   const selectedCount = selected.size;
   const total = conversations?.length || 0;
 
@@ -125,11 +140,14 @@ export default function ChatImporter({
         const file = new File([blob], `${mkb.metadata.title}.mkb`, { type: 'application/zip' });
         await onOpenSingle?.(file);
       } else {
-        // 複数 → 全部本棚保存
-        for (const conv of targets) {
-          const entry = await conversationToBookEntry(conv, { branch: branchMode });
+        // 複数 → 全部本棚保存（進捗表示付き）
+        setProgress({ done: 0, total: targets.length });
+        for (let i = 0; i < targets.length; i++) {
+          const entry = await conversationToBookEntry(targets[i], { branch: branchMode });
           await saveBook(entry);
+          setProgress({ done: i + 1, total: targets.length });
         }
+        setProgress(null);
         alert(`${targets.length} 件の会話を本棚に保存しました`);
         onCancel?.(); // 本棚に戻る
       }
@@ -212,12 +230,43 @@ export default function ChatImporter({
               onClick={handleConvert}
               disabled={loading || selectedCount === 0}
             >
-              {loading ? '変換中…' : selectedCount === 1 ? '変換して開く' : `${selectedCount} 件を本棚に保存`}
+              {progress
+                ? `${progress.done} / ${progress.total} 保存中…`
+                : loading ? '変換中…'
+                : selectedCount === 1 ? '変換して開く'
+                : `${selectedCount} 件を本棚に保存`}
             </button>
           </div>
+          {/* 検索フィルタ */}
+          <div className="chat-filter">
+            <input
+              type="search"
+              className="chat-filter-input"
+              placeholder="タイトルで絞り込み…"
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+            />
+            {filterText && (
+              <span className="rw-hint" style={{ marginLeft: '0.5rem' }}>
+                {filteredConversations.length} 件表示
+              </span>
+            )}
+          </div>
+          {/* 進捗バー（一括変換中） */}
+          {progress && (
+            <div className="chat-progress">
+              <div
+                className="chat-progress-bar"
+                style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }}
+              />
+              <span>{progress.done} / {progress.total}</span>
+            </div>
+          )}
           <ul className="chat-list">
-            {conversations.map((c) => {
+            {filteredConversations.map((c) => {
               const checked = selected.has(c.uuid);
+              // プレビュー: 最初の 2 メッセージ
+              const previewMsgs = (c.chat_messages || []).slice(0, 2);
               return (
                 <li key={c.uuid} className={`chat-item ${checked ? 'selected' : ''}`}>
                   <label>
@@ -227,6 +276,24 @@ export default function ChatImporter({
                       {fmtDate(c.created_at)} · {c.chat_messages.length} msg
                     </span>
                   </label>
+                  {previewMsgs.length > 0 && (
+                    <details className="chat-preview">
+                      <summary>プレビュー</summary>
+                      {previewMsgs.map((m, i) => {
+                        const sender = String(m?.sender || m?.role || '');
+                        const text = (m?.content || [])
+                          .filter((b) => b?.type === 'text')
+                          .map((b) => b.text || '')
+                          .join(' ')
+                          .slice(0, 120);
+                        return (
+                          <p key={i} className="chat-preview-msg">
+                            <strong>{sender}</strong>: {text}{text.length >= 120 ? '…' : ''}
+                          </p>
+                        );
+                      })}
+                    </details>
+                  )}
                 </li>
               );
             })}

@@ -24,9 +24,11 @@ function classifyImage(naturalW, naturalH, viewportW, mode) {
 }
 
 // onLoad で画像クラスを差し替える component
-function MdImage({ src, alt, imageDisplayMode = 'balance', onClick }) {
-  const [klass, setKlass] = useState('img-block'); // 仮（読み込み前のレイアウトずれ抑制）
+// §21 §15 拡張: fixedClass が指定された場合は自動判定をスキップしてそのクラスを使用
+function MdImage({ src, alt, imageDisplayMode = 'balance', onClick, fixedClass }) {
+  const [klass, setKlass] = useState(fixedClass || 'img-block');
   function onLoad(e) {
+    if (fixedClass) return; // displaySize 指定済みなら自動判定しない
     const img = e.currentTarget;
     const vw = window.innerWidth || document.documentElement.clientWidth || 800;
     setKlass(classifyImage(img.naturalWidth, img.naturalHeight, vw, imageDisplayMode));
@@ -122,6 +124,63 @@ export default function MarkdownRenderer({
           return url;
         }}
         components={{
+          // §21 data-source-line: 長押しメニューの行番号特定に使用（AST positionから取得）
+          // なぜ: 行番号がないと「この行を非表示」「テキストを読み替える」が機能しない。
+          //   positionがない場合は属性を付与しない（graceful degradation）
+          p({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            // §22 話者名スタイリング: 段落が単一の strong 要素だけなら話者行として扱う
+            if (node.children?.length === 1 && node.children[0]?.type === 'strong') {
+              const text = (node.children[0].children || []).map((c) => c.value || '').join('');
+              const sn = rewriteRules?.speakerNames || {};
+              const tl = text.toLowerCase();
+              const humanAlias = (sn.human || '').toLowerCase();
+              const assistantAlias = (sn.assistant || '').toLowerCase();
+              if (tl === 'human' || tl === 'user' || (humanAlias && tl === humanAlias)) {
+                return <p className="speaker-human" data-source-line={line || undefined} {...rest}>{children}</p>;
+              }
+              if (tl === 'assistant' || (assistantAlias && tl === assistantAlias)) {
+                return <p className="speaker-assistant" data-source-line={line || undefined} {...rest}>{children}</p>;
+              }
+            }
+            return <p data-source-line={line || undefined} {...rest}>{children}</p>;
+          },
+          h1({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <h1 data-source-line={line || undefined} {...rest}>{children}</h1>;
+          },
+          h2({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <h2 data-source-line={line || undefined} {...rest}>{children}</h2>;
+          },
+          h3({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <h3 data-source-line={line || undefined} {...rest}>{children}</h3>;
+          },
+          h4({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <h4 data-source-line={line || undefined} {...rest}>{children}</h4>;
+          },
+          h5({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <h5 data-source-line={line || undefined} {...rest}>{children}</h5>;
+          },
+          h6({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <h6 data-source-line={line || undefined} {...rest}>{children}</h6>;
+          },
+          blockquote({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <blockquote data-source-line={line || undefined} {...rest}>{children}</blockquote>;
+          },
+          li({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <li data-source-line={line || undefined} {...rest}>{children}</li>;
+          },
+          pre({ node, children, ...rest }) {
+            const line = node.position?.start?.line;
+            return <pre data-source-line={line || undefined} {...rest}>{children}</pre>;
+          },
           a({ href, children, className, ...rest }) {
             if (typeof href === 'string' && href.startsWith('#chapter:')) {
               const target = decodeURIComponent(href.slice('#chapter:'.length));
@@ -153,13 +212,15 @@ export default function MarkdownRenderer({
             );
           },
           // §11 MD 内画像の表示モード自動判定 + タップで拡大
-          img({ src, alt }) {
+          // §21 §15 拡張: className（displaySize 由来のクラス）があれば fixedClass として渡す
+          img({ src, alt, className }) {
             return (
               <MdImage
                 src={src}
                 alt={alt}
                 imageDisplayMode={imageDisplayMode}
                 onClick={setModal}
+                fixedClass={className || undefined}
               />
             );
           },

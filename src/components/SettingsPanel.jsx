@@ -8,7 +8,7 @@
 //   - 各項目に「リセット」アイコン（ローカル時のみ表示）
 
 import { useEffect, useState } from 'react';
-import { FONTS, THEMES, PRESETS } from '../hooks/useSettings.js';
+import { FONTS, LATIN_FONTS, THEMES, PRESETS } from '../hooks/useSettings.js';
 
 const HR_STYLES = [
   { key: 'page-break', label: '改ページ' },
@@ -62,6 +62,8 @@ export default function SettingsPanel({
   overriddenKeys,
   resetLocalKey,
   canEditLocal,        // bookId が無い時は「この本」タブを無効化
+  // §24 タップゾーン設定変更時のオーバーレイプレビュー起動
+  onTapZoneChange,
   // 本棚全削除（検証用）
   bookCount = 0,
   onDeleteAllBooks,
@@ -82,6 +84,8 @@ export default function SettingsPanel({
 
   // 「文字」の詳細スライダー折りたたみ
   const [charsDetailOpen, setCharsDetailOpen] = useState(false);
+  // §24 タップゾーン詳細スライダー折りたたみ
+  const [tapZoneDetailOpen, setTapZoneDetailOpen] = useState(false);
 
   return (
     <>
@@ -187,9 +191,23 @@ export default function SettingsPanel({
               </label>
             ))}
           </div>
+          {/* §25 欧文フォント選択（日本語フォントの直下） */}
+          <p className="rw-hint" style={{ marginTop: '0.6rem', marginBottom: '0.3rem' }}>欧文フォント</p>
+          <div className="radio-group">
+            {Object.entries(LATIN_FONTS).map(([k, f]) => (
+              <label key={k} className={(settings.latinFont ?? 'eb-garamond') === k ? 'active' : ''}>
+                <input
+                  type="radio" name="latinFont"
+                  checked={(settings.latinFont ?? 'eb-garamond') === k}
+                  onChange={() => update({ latinFont: k })}
+                />
+                {f.label}
+              </label>
+            ))}
+          </div>
           <div
             className="font-preview"
-            style={{ fontFamily: FONTS[settings.font]?.family || 'inherit' }}
+            style={{ fontFamily: `${LATIN_FONTS[settings.latinFont ?? 'eb-garamond']?.family || 'inherit'}, ${FONTS[settings.font]?.family || 'inherit'}` }}
           >
             あいうえお ABCabc 0123 — 美しく読む
           </div>
@@ -223,6 +241,75 @@ export default function SettingsPanel({
               className={settings.swipeDirection === 'vertical' ? 'active' : ''}
               onClick={() => update({ swipeDirection: 'vertical' })}
             >上下スワイプ</button>
+          </div>
+        </Section>
+
+        {/* §24 タップゾーン（ページモード時のみ意味があるため「操作」直後に配置） */}
+        <Section title="タップゾーン" overridden={isOverridden('tapZone')} onReset={onResetKey('tapZone')}>
+          <div className="settings-row">
+            {[
+              { key: 'bottom-corners', label: '下部コーナー' },
+              { key: 'sides', label: '左右サイド' },
+              { key: 'fullpage', label: '全面' },
+            ].map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`settings-btn ${(settings.tapZone?.preset ?? 'bottom-corners') === p.key ? 'active' : ''}`}
+                onClick={() => {
+                  update({ tapZone: { ...(settings.tapZone ?? {}), preset: p.key } });
+                  onTapZoneChange?.();
+                }}
+              >{p.label}</button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="details-toggle"
+            onClick={() => setTapZoneDetailOpen((v) => !v)}
+          >
+            {tapZoneDetailOpen ? '▾ 詳細を閉じる' : '▸ 詳細'}
+          </button>
+          {tapZoneDetailOpen && (
+            <>
+              <div className="slider-row">
+                <span className="slider-value">40px</span>
+                <input
+                  type="range" min="40" max="160" step="20"
+                  value={settings.tapZone?.height ?? 80}
+                  onChange={(e) => {
+                    update({ tapZone: { ...(settings.tapZone ?? {}), height: Number(e.target.value) } });
+                    onTapZoneChange?.();
+                  }}
+                />
+                <span className="slider-value">{settings.tapZone?.height ?? 80}px</span>
+              </div>
+              <div className="slider-row">
+                <span className="slider-value">20%</span>
+                <input
+                  type="range" min="20" max="50" step="5"
+                  value={settings.tapZone?.width ?? 30}
+                  onChange={(e) => {
+                    update({ tapZone: { ...(settings.tapZone ?? {}), width: Number(e.target.value) } });
+                    onTapZoneChange?.();
+                  }}
+                />
+                <span className="slider-value">{settings.tapZone?.width ?? 30}%</span>
+              </div>
+            </>
+          )}
+        </Section>
+
+        {/* §23 ヘッダー高さ */}
+        <Section title="ヘッダー" overridden={isOverridden('headerHeight')} onReset={onResetKey('headerHeight')}>
+          <div className="slider-row">
+            <span className="slider-value">36px</span>
+            <input
+              type="range" min="36" max="72" step="4"
+              value={settings.headerHeight ?? 48}
+              onChange={(e) => update({ headerHeight: Number(e.target.value) })}
+            />
+            <span className="slider-value">{settings.headerHeight ?? 48}px</span>
           </div>
         </Section>
 

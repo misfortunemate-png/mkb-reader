@@ -17,6 +17,8 @@ import ChatImporter from './components/ChatImporter.jsx';
 import RewritePanel from './components/RewritePanel.jsx';
 import ImageInserter from './components/ImageInserter.jsx';
 import ExportDialog from './components/ExportDialog.jsx';
+import ContextMenu from './components/ContextMenu.jsx';
+import Toast from './components/Toast.jsx';
 import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
@@ -50,6 +52,7 @@ export default function App() {
     findByTitle,
     getLocalSettings,
     saveLocalSettings,
+    saveLastPosition,
     resizeProgress,
   } = useBookshelf();
 
@@ -69,6 +72,27 @@ export default function App() {
   const [rewriteOpen, setRewriteOpen] = useState(false);
   const [imageInserterOpen, setImageInserterOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  // §23 トースト通知
+  const [toastMsg, setToastMsg] = useState(null);
+  function showToast(msg) { setToastMsg(msg); }
+
+  // §21 コンテキストメニュー
+  const [contextMenuEvent, setContextMenuEvent] = useState(null);
+
+  // §24 タップゾーンオーバーレイ（設定変更時の3秒間だけ表示）
+  const [tapZonePreview, setTapZonePreview] = useState(false);
+  const tapZonePreviewTimerRef = useRef(null);
+  function handleTapZoneChange() {
+    if (tapZonePreviewTimerRef.current) clearTimeout(tapZonePreviewTimerRef.current);
+    setTapZonePreview(true);
+    tapZonePreviewTimerRef.current = setTimeout(() => setTapZonePreview(false), 3000);
+  }
+
+  // §26 中断箇所の再開
+  // なぜ: 本を開いた時の lastPosition を ref で保持（stateより先に参照できるため closure 問題を回避）
+  const pendingLastPositionRef = useRef(null);
+  const [initialPage, setInitialPage] = useState(null);
+  const [initialScrollRatio, setInitialScrollRatio] = useState(null);
 
   // §14 読み替えルール
   const rewrite = useRewrite({
@@ -116,17 +140,42 @@ export default function App() {
   // applyRewrite に渡す URL 解決関数
   const insertedAssetUrl = (asset) => insertedAssetUrls.get(asset?.id) || asset?.path || '';
 
+  // §23 ファイル読み込みエラーをトーストで通知
+  useEffect(() => {
+    if (error) showToast(`読み込みエラー: ${error}`);
+  }, [error]);
+
   // 何を: コンテンツが読み込まれたらビューア画面へ遷移
   // なぜ: ViewerContent 抽象化（Phase 3a §10〜§11）— mkb 以外も view='reader' で扱う
+  // §26: pendingLastPositionRef を参照して中断チャプター・ページ/スクロール比率を復元
   useEffect(() => {
     if (!content) {
       setCurrentId(null);
       return;
     }
     if (content.type === 'mkb' && content.data?.chapters?.length) {
-      setCurrentId(content.data.chapters[0].id);
+      const chapters = content.data.chapters;
+      const lp = pendingLastPositionRef.current;
+      pendingLastPositionRef.current = null; // 使い捨て
+      let targetId = chapters[0].id;
+      let targetPage = null;
+      let targetScrollRatio = null;
+      if (lp?.chapterId) {
+        const found = chapters.find((c) => c.id === lp.chapterId);
+        if (found) {
+          targetId = found.id;
+          targetPage = lp.page ?? null;
+          targetScrollRatio = lp.scrollRatio ?? null;
+        }
+        // 存在しないチャプターIDの場合はフォールバックで先頭
+      }
+      setCurrentId(targetId);
+      setInitialPage(targetPage);
+      setInitialScrollRatio(targetScrollRatio);
     } else {
       setCurrentId(null);
+      setInitialPage(null);
+      setInitialScrollRatio(null);
     }
     setView('reader');
   }, [content]);
@@ -142,7 +191,53 @@ export default function App() {
     const found = mkb.chapters.find(
       (c) => c.id.toLowerCase() === lower || (c.title || '').toLowerCase() === lower,
     );
-    if (found) setCurrentId(found.id);
+    if (found) {
+      // §26: チャプター切替時にページ0で保存（新チャプターの先頭）
+      if (activeEntry?.id) saveLastPosition(activeEntry.id, { chapterId: found.id, page: 0 });
+      setCurrentId(found.id);
+    }
+  }
+
+  // §26: ページ変更時に位置を保存（debounce は Paginator 側で済み）
+  function handlePageChange(page) {
+    if (!activeEntry?.id || !currentChapter) return;
+    saveLastPosition(activeEntry.id, { chapterId: currentChapter.id, page });
+  }
+
+  // §26: スクロール比率変更時に位置を保存（debounce は Paginator 側で済み）
+  function handleScrollRatioChange(scrollRatio) {
+    if (!activeEntry?.id || !currentChapter) return;
+    saveLastPosition(activeEntry.id, { chapterId: currentChapter.id, scrollRatio });
+  }
+
+  // §21 コンテキストメニューのコールバック群
+  function handleHideLine(lineNumber) {
+    if (!currentChapter) return;
+    rewrite.addHiddenRange({ chapterId: currentChapter.id, startLine: lineNumber, endLine: lineNumber });
+  }
+
+  function handleEditLine(lineNumber, original, display) {
+    if (!currentChapter) return;
+    rewrite.addLineEdit({ chapterId: currentChapter.id, lineNumber, original, display });
+  }
+
+  async function handleInsertImageFromContext({ lineNumber, displaySize, file }) {
+    if (!currentChapter) return;
+    try {
+      const buffer = await file.arrayBuffer();
+      rewrite.addInsertedAsset({
+        chapterId: currentChapter.id,
+        path: '',
+        data: buffer,
+        mimeType: file.type || 'image/jpeg',
+        altText: file.name || '',
+        displaySize: displaySize || 'block',
+        insertAfter: { chapterId: currentChapter.id, lineNumber: lineNumber || 0 },
+        enabled: true,
+      });
+    } catch (e) {
+      console.error('handleInsertImageFromContext:', e);
+    }
   }
 
   // ───── 共通ローダ（lastFile を保持して save 経路に渡す） ─────
@@ -155,6 +250,8 @@ export default function App() {
   async function handleOpenBook(entry) {
     setActiveEntry(entry);
     setLastFile(null); // 本棚由来は既保存
+    // §26: lastPosition を ref に保存（content の useEffect より先に設定しておく）
+    pendingLastPositionRef.current = entry.localSettings?.lastPosition || null;
     await updateLastOpened(entry.id);
     await loadFile(bookEntryToFile(entry));
   }
@@ -212,17 +309,20 @@ export default function App() {
   // ───── 本棚画面 ─────
   if (view === 'shelf') {
     return (
-      <Bookshelf
-        books={books}
-        loading={shelfLoading || loading}
-        error={error}
-        onPickFile={handlePickFile}
-        onOpenBook={handleOpenBook}
-        onDeleteBook={deleteBook}
-        onLoadSample={handleLoadSample}
-        samples={SAMPLES}
-        onOpenChatImporter={() => setView('chat-import')}
-      />
+      <>
+        <Bookshelf
+          books={books}
+          loading={shelfLoading || loading}
+          error={error}
+          onPickFile={handlePickFile}
+          onOpenBook={handleOpenBook}
+          onDeleteBook={deleteBook}
+          onLoadSample={handleLoadSample}
+          samples={SAMPLES}
+          onOpenChatImporter={() => setView('chat-import')}
+        />
+        <Toast message={toastMsg} onDismiss={() => setToastMsg(null)} />
+      </>
     );
   }
 
@@ -269,7 +369,11 @@ export default function App() {
           metadata={mkb.metadata}
           chapters={mkb.chapters}
           currentId={currentId}
-          onSelect={setCurrentId}
+          onSelect={(id) => {
+            // §26: チャプター切替時に先頭ページで位置を保存
+            if (activeEntry?.id) saveLastPosition(activeEntry.id, { chapterId: id, page: 0 });
+            setCurrentId(id);
+          }}
           open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
         />
@@ -361,6 +465,13 @@ export default function App() {
           rewriteRules={rewrite.rules}
           rewriteHighlight={settings.rewriteHighlight}
           insertedAssetUrl={insertedAssetUrl}
+          tapZone={settings.tapZone}
+          showTapZoneOverlay={tapZonePreview}
+          initialPage={initialPage}
+          initialScrollRatio={initialScrollRatio}
+          onPageChange={handlePageChange}
+          onScrollRatioChange={handleScrollRatioChange}
+          onContextMenu={activeEntry ? setContextMenuEvent : undefined}
         />
       )}
       {content.type === 'html' && (
@@ -407,6 +518,21 @@ export default function App() {
           onAdd={async (asset) => { rewrite.addInsertedAsset(asset); }}
         />
       )}
+      {/* §21 コンテキストメニュー（mkb + 本棚保存済みの場合のみ） */}
+      {isMkb && activeEntry && (
+        <ContextMenu
+          event={contextMenuEvent}
+          onClose={() => setContextMenuEvent(null)}
+          chapterContent={currentChapter?.content}
+          chapterId={currentChapter?.id}
+          onHideLine={handleHideLine}
+          onEditLine={handleEditLine}
+          onInsertImage={handleInsertImageFromContext}
+          onUndo={rewrite.undo}
+          canUndo={rewrite.canUndo}
+          onOpenRewrite={() => setRewriteOpen(true)}
+        />
+      )}
       {/* §16 エクスポート */}
       {isMkb && activeEntry && (
         <ExportDialog
@@ -418,6 +544,7 @@ export default function App() {
           rewriteRules={rewrite.rules}
         />
       )}
+      <Toast message={toastMsg} onDismiss={() => setToastMsg(null)} />
       <SettingsPanel
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -431,6 +558,7 @@ export default function App() {
         overriddenKeys={overriddenKeys}
         resetLocalKey={resetLocalKey}
         canEditLocal={!!activeEntry?.id}
+        onTapZoneChange={handleTapZoneChange}
         bookCount={books?.length || 0}
         onDeleteAllBooks={async () => {
           if (!books?.length) return;

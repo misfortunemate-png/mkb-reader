@@ -107,23 +107,59 @@ function applyInsertedAssets(md, assets, chapterId, assetUrlOf) {
     const a = targets[i];
     const ln = Math.max(0, Math.min(lines.length, Number(a.insertAfter?.lineNumber) || lines.length));
     const url = assetUrlOf?.(a) || a.path || '';
-    const alt = (a.altText || '').replace(/\]/g, '');
-    const imgMd = `\n![${alt}](${url})\n`;
+    const alt = (a.altText || '').replace(/"/g, '&quot;');
+    // §21 §15 拡張: displaySize に応じた CSS クラスを付与
+    // <img> HTML を直接生成して rehype-raw で描画（img-inline/img-block/img-fullpage）
+    const cls = `img-${a.displaySize || 'block'}`;
+    const imgMd = `\n<img src="${url}" alt="${alt}" class="${cls}">\n`;
     lines.splice(ln, 0, imgMd);
+  }
+  return lines.join('\n');
+}
+
+// §21: 行単位の完全一致読み替え
+// なぜ: lineEdits は replacements より先に適用する。
+//   具体的なルール（行番号+テキスト特定）が汎用ルール（パターンマッチ）に上書きされないため。
+//   lineNumber は data-source-line の値（1-origin）。start行から次の空行までを段落として扱う
+function applyLineEdits(md, lineEdits, chapterId) {
+  if (!Array.isArray(lineEdits) || lineEdits.length === 0) return md;
+  const targets = lineEdits.filter(
+    (e) => e && e.enabled !== false &&
+      (!e.chapterId || e.chapterId === chapterId || e.chapterId === 'all'),
+  );
+  if (targets.length === 0) return md;
+
+  const lines = md.split('\n');
+  // 後ろから適用して行番号のずれを防ぐ
+  const sorted = [...targets].sort((a, b) => (b.lineNumber || 0) - (a.lineNumber || 0));
+  for (const edit of sorted) {
+    const startIdx = (edit.lineNumber || 1) - 1; // 0-indexed
+    if (startIdx < 0 || startIdx >= lines.length) continue;
+    // 段落末尾（次の空行 or ファイル末尾）を探す
+    let endIdx = startIdx;
+    while (endIdx + 1 < lines.length && lines[endIdx + 1].trim() !== '') endIdx++;
+    // original が指定されていれば簡易一致確認（内容が変わっていたらスキップ）
+    if (edit.original) {
+      const current = lines.slice(startIdx, endIdx + 1).join('\n');
+      if (current.trim() !== edit.original.trim()) continue;
+    }
+    lines.splice(startIdx, endIdx - startIdx + 1, edit.display ?? '');
   }
   return lines.join('\n');
 }
 
 // 何を: 読み替え全体を適用する（純粋関数のエントリポイント）
 // なぜ: MarkdownRenderer から「描画直前にこれを呼ぶだけ」で読み替えが完了する設計
-//   highlight=true の時、置換テキストを <mark class="rewritten"> で囲む
-//   assetUrlOf は §15 で必要な「InsertedAsset → URL」解決関数（任意）
+//   適用順序（厳守）: speakerNames → lineEdits → replacements → hiddenRanges → insertedAssets
+//   lineEdits（具体・行単位）を replacements（汎用・パターンマッチ）より先にする理由:
+//   具体的なルールを汎用ルールが再上書きしないようにする
 export function applyRewrite(originalMd, rules, chapterId = 'index', options = {}) {
   if (!originalMd) return '';
   if (!rules) return originalMd;
   const { highlight = true, assetUrlOf = null } = options;
   let out = originalMd;
   out = applySpeakerNames(out, rules.speakerNames);
+  out = applyLineEdits(out, rules.lineEdits, chapterId);
   out = applyReplacements(out, rules.replacements, chapterId, highlight);
   out = applyHiddenRanges(out, rules.hiddenRanges, chapterId);
   out = applyInsertedAssets(out, rules.insertedAssets, chapterId, assetUrlOf);
@@ -136,6 +172,7 @@ export function isEmptyRules(rules) {
   if (!rules) return true;
   const sn = rules.speakerNames || {};
   if (sn.human || sn.assistant) return false;
+  if ((rules.lineEdits || []).some((e) => e?.enabled !== false)) return false;
   if ((rules.replacements || []).some((r) => r?.enabled && r.pattern)) return false;
   if ((rules.hiddenRanges || []).some((r) => r?.enabled)) return false;
   if ((rules.insertedAssets || []).some((a) => a?.enabled !== false)) return false;

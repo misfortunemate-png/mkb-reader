@@ -11,22 +11,29 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 const EMPTY_RULES = {
   speakerNames: {},
+  lineEdits: [],
   replacements: [],
   hiddenRanges: [],
   insertedAssets: [],
 };
 
+const MAX_UNDO = 50;
+
 export function useRewrite({ activeBookId, getLocalSettings, saveLocalSettings }) {
   const [rules, setRules] = useState(EMPTY_RULES);
   const localRef = useRef(null); // localSettings 全体（display なども含むので保持）
+  // §21 undoスタック: セッション内のみ（永続化しない）
+  // なぜ: undoは「読書セッション中の操作ミス取り消し」のため。ファイルを閉じたらリセットが自然
+  const [undoStack, setUndoStack] = useState([]);
 
-  // book 切替時にローカル設定を取り直し、rewrite を抽出
+  // book 切替時にローカル設定を取り直し、rewrite を抽出・undoスタックをクリア
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!activeBookId || !getLocalSettings) {
         localRef.current = null;
         setRules(EMPTY_RULES);
+        setUndoStack([]); // book切替でスタッククリア
         return;
       }
       try {
@@ -34,6 +41,7 @@ export function useRewrite({ activeBookId, getLocalSettings, saveLocalSettings }
         if (cancelled) return;
         localRef.current = ls || null;
         setRules({ ...EMPTY_RULES, ...(ls?.rewrite || {}) });
+        setUndoStack([]); // book切替でスタッククリア
       } catch (e) {
         console.error('useRewrite: getLocalSettings failed', e);
       }
@@ -49,6 +57,14 @@ export function useRewrite({ activeBookId, getLocalSettings, saveLocalSettings }
     localRef.current = ls;
     await saveLocalSettings(activeBookId, ls);
   }, [activeBookId, saveLocalSettings]);
+
+  // §21 undoスタックへの追加（最大 MAX_UNDO 件）
+  const pushUndo = useCallback((entry) => {
+    setUndoStack((prev) => {
+      const next = [...prev, entry];
+      return next.length > MAX_UNDO ? next.slice(next.length - MAX_UNDO) : next;
+    });
+  }, []);
 
   // ───── 公開 API ─────
 
@@ -105,14 +121,53 @@ export function useRewrite({ activeBookId, getLocalSettings, saveLocalSettings }
     });
   }, [persist]);
 
+  // §21 lineEdits CRUD
+  const addLineEdit = useCallback((edit = {}) => {
+    const id = edit.id || crypto.randomUUID();
+    setRules((prev) => {
+      const entry = {
+        id,
+        chapterId: edit.chapterId || 'all',
+        lineNumber: Number(edit.lineNumber) || 1,
+        original: edit.original || '',
+        display: edit.display || '',
+        enabled: edit.enabled !== false,
+      };
+      const next = { ...prev, lineEdits: [...(prev.lineEdits || []), entry] };
+      persist(next);
+      return next;
+    });
+    pushUndo({ type: 'lineEdit', targetId: id });
+  }, [persist, pushUndo]);
+
+  const updateLineEdit = useCallback((id, patch) => {
+    setRules((prev) => {
+      const next = {
+        ...prev,
+        lineEdits: (prev.lineEdits || []).map((e) => e.id === id ? { ...e, ...patch } : e),
+      };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
+  const removeLineEdit = useCallback((id) => {
+    setRules((prev) => {
+      const next = { ...prev, lineEdits: (prev.lineEdits || []).filter((e) => e.id !== id) };
+      persist(next);
+      return next;
+    });
+  }, [persist]);
+
   const addHiddenRange = useCallback((range = {}) => {
+    const id = range.id || crypto.randomUUID();
     setRules((prev) => {
       const next = {
         ...prev,
         hiddenRanges: [
           ...(prev.hiddenRanges || []),
           {
-            id: range.id || crypto.randomUUID(),
+            id,
             chapterId: range.chapterId || 'all',
             startLine: Number(range.startLine) || 1,
             endLine: Number(range.endLine) || 1,
@@ -123,7 +178,8 @@ export function useRewrite({ activeBookId, getLocalSettings, saveLocalSettings }
       persist(next);
       return next;
     });
-  }, [persist]);
+    pushUndo({ type: 'hiddenRange', targetId: id }); // §21 undo
+  }, [persist, pushUndo]);
 
   const updateHiddenRange = useCallback((id, patch) => {
     setRules((prev) => {
@@ -147,17 +203,20 @@ export function useRewrite({ activeBookId, getLocalSettings, saveLocalSettings }
     });
   }, [persist]);
 
-  // §15 で使う: insertedAssets の追加・削除
+  // §15 §21 で使う: insertedAssets の追加・削除
   const addInsertedAsset = useCallback((asset) => {
+    const id = asset.id || crypto.randomUUID();
+    const entry = { ...asset, id };
     setRules((prev) => {
       const next = {
         ...prev,
-        insertedAssets: [...(prev.insertedAssets || []), asset],
+        insertedAssets: [...(prev.insertedAssets || []), entry],
       };
       persist(next);
       return next;
     });
-  }, [persist]);
+    pushUndo({ type: 'insertedAsset', targetId: id }); // §21 undo
+  }, [persist, pushUndo]);
 
   const updateInsertedAsset = useCallback((id, patch) => {
     setRules((prev) => {
@@ -181,11 +240,38 @@ export function useRewrite({ activeBookId, getLocalSettings, saveLocalSettings }
     });
   }, [persist]);
 
+  // §21 undo: スタックからpopして対応ルールを削除
+  // なぜ: セッション内のみ。ファイルを閉じたらスタックがクリアされるため永続化は不要
+  const undo = useCallback(() => {
+    setUndoStack((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      const next = prev.slice(0, -1);
+      // 対応ルールを削除
+      setRules((r) => {
+        let updated = { ...r };
+        if (last.type === 'lineEdit') {
+          updated.lineEdits = (r.lineEdits || []).filter((e) => e.id !== last.targetId);
+        } else if (last.type === 'hiddenRange') {
+          updated.hiddenRanges = (r.hiddenRanges || []).filter((e) => e.id !== last.targetId);
+        } else if (last.type === 'insertedAsset') {
+          updated.insertedAssets = (r.insertedAssets || []).filter((e) => e.id !== last.targetId);
+        }
+        persist(updated);
+        return updated;
+      });
+      return next;
+    });
+  }, [persist]);
+
   return {
     rules,
     setSpeakerName,
+    addLineEdit, updateLineEdit, removeLineEdit,
     addReplacement, updateReplacement, removeReplacement,
     addHiddenRange, updateHiddenRange, removeHiddenRange,
     addInsertedAsset, updateInsertedAsset, removeInsertedAsset,
+    undo,
+    canUndo: undoStack.length > 0,
   };
 }

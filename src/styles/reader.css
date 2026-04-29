@@ -49,6 +49,7 @@
 
   /* レイアウト用 */
   --header-h: 48px;
+  --icon-btn-size: calc(var(--header-h) - 10px);
   --indicator-h: 40px;
   --sidebar-w: 240px;
 }
@@ -365,12 +366,16 @@ button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: var(--icon-btn-size);
+  height: var(--icon-btn-size);
+  min-width: 28px;
+  min-height: 28px;
   border: none;
   background: transparent;
   border-radius: 6px;
   cursor: pointer;
+  font-size: calc(var(--icon-btn-size) * 0.48);
+  flex-shrink: 0;
 }
 .icon-btn:hover { background: var(--color-code-bg); }
 
@@ -1214,4 +1219,210 @@ button {
   border-radius: 999px;
   font-size: 0.85rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
+/* §21 コンテキストメニュー */
+.context-menu {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.18);
+  padding: 0.35rem 0;
+  animation: ctx-fadein 0.1s ease;
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+@keyframes ctx-fadein {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ctx-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 1rem;
+  background: none;
+  border: none;
+  color: var(--color-text);
+  cursor: pointer;
+  font-size: inherit;
+  font-family: inherit;
+  line-height: 1.4;
+}
+.ctx-item:hover:not(:disabled) {
+  background: var(--color-code-bg);
+}
+.ctx-item:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.ctx-item.active {
+  color: var(--color-accent);
+  font-weight: bold;
+}
+
+.ctx-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.3rem 0;
+}
+
+.ctx-label {
+  padding: 0.4rem 1rem 0.2rem;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+}
+
+.ctx-textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem 0.75rem;
+  margin: 0.35rem 0;
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  color: var(--color-text);
+  font-size: 0.85rem;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 5rem;
+}
+
+.ctx-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem 0.5rem;
+}
+
+.ctx-btn {
+  flex: 1;
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.35rem;
+  border: none;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  font-weight: 500;
+}
+.ctx-btn.secondary {
+  background: var(--color-code-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+.ctx-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* §22 話者名スタイリング */
+.markdown .speaker-human,
+.markdown .speaker-assistant {
+  margin-top: 1.2em;
+  margin-bottom: 0.25em;
+  padding: 0.2em 0.75em;
+  border-radius: 0.25em;
+  font-size: 0.82em;
+  font-weight: normal;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.markdown .speaker-human {
+  background: var(--color-code-bg);
+  border-left: 3px solid var(--color-accent);
+}
+.markdown .speaker-assistant {
+  background: transparent;
+  border-left: 3px solid var(--color-border);
+}
+
+/* §22 ChatImporter — 検索フィルタ・進捗バー・プレビュー */
+.chat-filter {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.chat-filter-input {
+  flex: 1;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-code-bg);
+  color: var(--color-text);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.chat-filter-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.chat-progress {
+  position: relative;
+  height: 2px;
+  background: var(--color-border);
+  overflow: hidden;
+  margin: 0;
+}
+.chat-progress-bar {
+  height: 100%;
+  background: var(--color-accent);
+  transition: width 0.2s;
+}
+.chat-progress span {
+  position: absolute;
+  right: 0.5rem;
+  top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+.chat-preview {
+  margin: 0.25rem 0 0 1.5rem;
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+}
+.chat-preview summary {
+  cursor: pointer;
+  color: var(--color-accent);
+  user-select: none;
+  list-style: none;
+  padding: 0.1rem 0;
+}
+.chat-preview summary::-webkit-details-marker { display: none; }
+.chat-preview-msg {
+  margin: 0.2rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* §23 Toast */
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.6rem 1.2rem;
+  background: #333;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.88rem;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+  max-width: calc(100vw - 2rem);
+  text-align: center;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+.toast-visible { opacity: 1; }
+.toast-hidden  { opacity: 0; }
+
+/* §23 本棚アイテム — ファイルタイプアイコン */
+.bk-icon {
+  margin-right: 0.4em;
+  font-size: 1em;
 }

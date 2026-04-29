@@ -185,6 +185,21 @@ export function useBookshelf() {
     await refresh();
   }, [refresh]);
 
+  // §26 中断箇所の保存
+  // なぜ: localSettings.lastPosition のみを更新する。display/rewrite は一切触れない。
+  //   読書中のページ送りのたびに呼ばれるため refresh() は呼ばない（再描画コスト回避）
+  const saveLastPosition = useCallback(async (bookId, position) => {
+    const db = dbRef.current; if (!db || !bookId) return;
+    try {
+      const entry = await awaitReq(tx(db, 'readonly').get(bookId));
+      if (!entry) return;
+      const ls = entry.localSettings || {};
+      await awaitReq(tx(db, 'readwrite').put({ ...entry, localSettings: { ...ls, lastPosition: position } }));
+    } catch (e) {
+      console.error('saveLastPosition failed:', e);
+    }
+  }, []);
+
   return {
     books,
     loading,
@@ -197,6 +212,7 @@ export function useBookshelf() {
     findByTitle,
     getLocalSettings,
     saveLocalSettings,
+    saveLastPosition,
     refresh,
     resizeProgress,
   };

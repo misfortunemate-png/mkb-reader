@@ -4,13 +4,33 @@
 
 import { useRef, useState } from 'react';
 
-function fmtDate(ts) {
+// §23 ファイルタイプ → 絵文字アイコン
+const TYPE_ICON = {
+  mkb: '📖', md: '📝', markdown: '📝', txt: '📄',
+  json: '📋', html: '🌐', htm: '🌐',
+  cbz: '🖼', zip: '🖼',
+  jpg: '🖼', jpeg: '🖼', png: '🖼', gif: '🖼', webp: '🖼', avif: '🖼',
+  chat: '💬',
+};
+function fileIcon(entry) {
+  return TYPE_ICON[entry?.fileType] || TYPE_ICON[entry?.format] || '📄';
+}
+
+// §23 最終閲覧日の相対表示
+const rtf = new Intl.RelativeTimeFormat('ja', { numeric: 'auto' });
+function relativeDate(ts) {
   if (!ts) return '';
+  const diffMs = ts - Date.now();
+  const diffSec = Math.round(diffMs / 1000);
+  const diffMin = Math.round(diffSec / 60);
+  const diffH = Math.round(diffMin / 60);
+  const diffD = Math.round(diffH / 24);
+  if (Math.abs(diffSec) < 60) return rtf.format(diffSec, 'second');
+  if (Math.abs(diffMin) < 60) return rtf.format(diffMin, 'minute');
+  if (Math.abs(diffH) < 24) return rtf.format(diffH, 'hour');
+  if (Math.abs(diffD) < 30) return rtf.format(diffD, 'day');
   const d = new Date(ts);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 export default function Bookshelf({
@@ -159,10 +179,13 @@ export default function Bookshelf({
                   onTouchMove={(e) => onTouchMove(e, b.id)}
                   onTouchEnd={(e) => onTouchEnd(e, b.id, b)}
                 >
-                  <span className="bk-title">{b.title}</span>
+                  <span className="bk-title">
+                    <span className="bk-icon">{fileIcon(b)}</span>
+                    {b.title}
+                  </span>
                   <span className="bk-meta">
                     {b.author ? `${b.author} — ` : ''}
-                    {fmtDate(b.addedAt)}
+                    {relativeDate(b.lastOpenedAt) || relativeDate(b.addedAt)}
                   </span>
                 </button>
               </li>
