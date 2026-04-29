@@ -320,6 +320,7 @@ export async function mkbDataToZipBuffer(mkb) {
 // なぜ: ChatImporter の「複数選択 → 一括保存」で使う
 export async function conversationToBookEntry(conv, options = {}) {
   const mkb = conversationToMkbData(conv, options);
+  const charCount = mkb.chapters.reduce((sum, c) => sum + (c.content?.length || 0), 0);
   const ab = await mkbDataToZipBuffer(mkb);
   return {
     id: crypto.randomUUID(),
@@ -329,6 +330,7 @@ export async function conversationToBookEntry(conv, options = {}) {
     fileData: ab,
     addedAt: Date.now(),
     lastOpenedAt: Date.now(),
+    charCount,
     localSettings: undefined,
   };
 }

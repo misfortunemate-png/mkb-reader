@@ -504,12 +504,7 @@ button {
   font-size: 0.9rem;
 }
 
-/* ヘッダー内のドロワーオープンボタンはモバイル時のみ */
-@media (min-width: 768px) {
-  .icon-btn.menu-toggle {
-    display: none;
-  }
-}
+/* ハンバーガーは showNav が true なら常時表示（画面幅問わず） */
 
 /* ─────────────────────────────────────────────────────────
    本棚画面（仕様書 §8 仮実装）
@@ -980,12 +975,23 @@ button {
 }
 
 /* §11 MD 内画像の表示モード */
-.markdown img.img-inline {
+/* 自動分類されたインライン画像（MD由来）: 行内に収まるサイズ */
+.markdown img.img-inline:not([data-asset-id]) {
   display: inline;
   vertical-align: middle;
   max-height: 1.6em;
   margin: 0 0.2em;
   cursor: zoom-in;
+}
+/* 差し込み画像のインライン（小）: 縦3行分・横95%以内 */
+.markdown img.img-inline[data-asset-id] {
+  display: block;
+  height: calc(var(--line-height) * var(--font-size) * 3);
+  max-width: 95%;
+  width: auto;
+  object-fit: contain;
+  margin: 0.5em auto;
+  cursor: pointer;
 }
 .markdown img.img-block {
   display: block;
@@ -993,6 +999,10 @@ button {
   height: auto;
   margin: 1em auto;
   cursor: zoom-in;
+}
+.markdown img.img-block[data-asset-id],
+.markdown img.img-fullpage[data-asset-id] {
+  cursor: pointer;
 }
 .markdown img.img-fullpage {
   /* 何を: 1ページ全面に画像を表示
@@ -1425,4 +1435,54 @@ button {
 .bk-icon {
   margin-right: 0.4em;
   font-size: 1em;
+}
+
+/* 差し込み画像アクションシート */
+.asset-action-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 8500;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: flex-end;
+}
+.asset-action-body {
+  background: var(--color-bg);
+  border-radius: 1rem 1rem 0 0;
+  padding: 1rem 1rem 1.5rem;
+  width: 100%;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+}
+.asset-action-label {
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 0.5rem;
+}
+.asset-action-sizes {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.asset-action-sizes .ctx-btn {
+  flex: 1;
+}
+.asset-action-delete {
+  display: block;
+  width: 100%;
+  padding: 0.6rem;
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  color: #c44;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.asset-action-delete:hover { background: rgba(204, 68, 68, 0.08); }
+
+/* SVGアイコンのサイズ調整 */
+.icon-btn svg {
+  width: 1.1em;
+  height: 1.1em;
+  vertical-align: middle;
 }

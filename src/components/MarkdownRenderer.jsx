@@ -25,13 +25,19 @@ function classifyImage(naturalW, naturalH, viewportW, mode) {
 
 // onLoad で画像クラスを差し替える component
 // §21 §15 拡張: fixedClass が指定された場合は自動判定をスキップしてそのクラスを使用
-function MdImage({ src, alt, imageDisplayMode = 'balance', onClick, fixedClass }) {
+// assetId がある（差し込み画像）場合は onAssetTap を呼ぶ（ズームしない）
+function MdImage({ src, alt, imageDisplayMode = 'balance', onClick, onAssetTap, fixedClass, assetId }) {
   const [klass, setKlass] = useState(fixedClass || 'img-block');
   function onLoad(e) {
-    if (fixedClass) return; // displaySize 指定済みなら自動判定しない
+    if (fixedClass) return;
     const img = e.currentTarget;
     const vw = window.innerWidth || document.documentElement.clientWidth || 800;
     setKlass(classifyImage(img.naturalWidth, img.naturalHeight, vw, imageDisplayMode));
+  }
+  function handleClick(e) {
+    e.stopPropagation();
+    if (assetId) onAssetTap?.(assetId);
+    else onClick?.({ src, alt });
   }
   return (
     <img
@@ -40,7 +46,7 @@ function MdImage({ src, alt, imageDisplayMode = 'balance', onClick, fixedClass }
       loading="lazy"
       className={klass}
       onLoad={onLoad}
-      onClick={(e) => { e.stopPropagation(); onClick?.({ src, alt }); }}
+      onClick={handleClick}
     />
   );
 }
@@ -59,11 +65,11 @@ function ImageModal({ image, onClose }) {
 
 export default function MarkdownRenderer({
   chapter, chapters, onWikiLinkClick, hrStyle = 'page-break', imageDisplayMode = 'balance',
-  // §14 読み替え
   rewriteRules,
   rewriteHighlight = true,
-  // §15 画像差し込みの URL 解決関数（インスタンス（Blob URL）or assets 相対パス）
   insertedAssetUrl,
+  // 差し込み画像タップ（サイズ変更/削除）
+  onInsertedAssetTap,
 }) {
   const [modal, setModal] = useState(null);
 
@@ -213,14 +219,17 @@ export default function MarkdownRenderer({
           },
           // §11 MD 内画像の表示モード自動判定 + タップで拡大
           // §21 §15 拡張: className（displaySize 由来のクラス）があれば fixedClass として渡す
-          img({ src, alt, className }) {
+          img({ src, alt, className, ...rest }) {
+            const assetId = rest['data-asset-id'];
             return (
               <MdImage
                 src={src}
                 alt={alt}
                 imageDisplayMode={imageDisplayMode}
                 onClick={setModal}
+                onAssetTap={onInsertedAssetTap}
                 fixedClass={className || undefined}
+                assetId={assetId}
               />
             );
           },

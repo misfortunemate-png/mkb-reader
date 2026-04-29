@@ -19,6 +19,7 @@ import ImageInserter from './components/ImageInserter.jsx';
 import ExportDialog from './components/ExportDialog.jsx';
 import ContextMenu from './components/ContextMenu.jsx';
 import Toast from './components/Toast.jsx';
+import { MenuIcon, ArrowLeftIcon, BookmarkIcon, PenIcon, DownloadIcon, SettingsIcon } from './components/Icons.jsx';
 import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
@@ -78,6 +79,12 @@ export default function App() {
 
   // §21 コンテキストメニュー
   const [contextMenuEvent, setContextMenuEvent] = useState(null);
+
+  // 差し込み画像タップ → サイズ変更/削除アクションシート
+  const [assetMenu, setAssetMenu] = useState(null); // null | { assetId }
+  function handleAssetTap(assetId) { setAssetMenu({ assetId }); }
+  function handleAssetResize(assetId, displaySize) { rewrite.updateInsertedAsset(assetId, { displaySize }); }
+  function handleAssetDelete(assetId) { rewrite.removeInsertedAsset(assetId); }
 
   // §24 タップゾーンオーバーレイ（設定変更時の3秒間だけ表示）
   const [tapZonePreview, setTapZonePreview] = useState(false);
@@ -249,9 +256,11 @@ export default function App() {
   // ───── 本棚 → ビューア ─────
   async function handleOpenBook(entry) {
     setActiveEntry(entry);
-    setLastFile(null); // 本棚由来は既保存
-    // §26: lastPosition を ref に保存（content の useEffect より先に設定しておく）
-    pendingLastPositionRef.current = entry.localSettings?.lastPosition || null;
+    setLastFile(null);
+    // §26: saveLastPosition は refresh() を呼ばないため books state の lastPosition が古い可能性がある
+    //   → getLocalSettings で IDB から直接最新値を取得してから復元する
+    const freshLs = await getLocalSettings(entry.id);
+    pendingLastPositionRef.current = freshLs?.lastPosition || null;
     await updateLastOpened(entry.id);
     await loadFile(bookEntryToFile(entry));
   }
@@ -294,7 +303,8 @@ export default function App() {
       alert('保存対象のファイルが見つかりません（本棚から開いた項目は既に保存済みです）');
       return;
     }
-    const entry = await fileToBookEntry(lastFile, mkb.metadata);
+    const charCount = mkb.chapters.reduce((sum, c) => sum + (c.content?.length || 0), 0);
+    const entry = await fileToBookEntry(lastFile, { ...mkb.metadata, charCount });
     const dup = await findByTitle(entry.title);
     if (dup) {
       if (!confirm(`「${entry.title}」は既に本棚にあります。上書きしますか？`)) return;
@@ -386,7 +396,7 @@ export default function App() {
             onClick={() => setDrawerOpen((v) => !v)}
             aria-label="チャプター"
           >
-            ≡
+            <MenuIcon />
           </button>
         )}
         <div className="title">
@@ -404,7 +414,7 @@ export default function App() {
           aria-label="本棚に戻る"
           title="本棚に戻る"
         >
-          ⌂
+          <ArrowLeftIcon />
         </button>
         <button
           type="button"
@@ -414,7 +424,7 @@ export default function App() {
           title={isSaved ? '本棚に保存済み' : '本棚に保存'}
           disabled={isSaved}
         >
-          {isSaved ? '★' : '☆'}
+          <BookmarkIcon filled={isSaved} />
         </button>
         {/* §14 読み替え（mkb のみ） */}
         {isMkb && activeEntry && (
@@ -425,7 +435,7 @@ export default function App() {
             aria-label="読み替え"
             title="読み替え"
           >
-            ✏
+            <PenIcon />
           </button>
         )}
         {/* §16 エクスポート（mkb で activeEntry あり） */}
@@ -437,7 +447,7 @@ export default function App() {
             aria-label="エクスポート"
             title="MKBエクスポート"
           >
-            ↓
+            <DownloadIcon />
           </button>
         )}
         <button
@@ -447,7 +457,7 @@ export default function App() {
           aria-label="設定"
           title="設定"
         >
-          ⚙
+          <SettingsIcon />
         </button>
       </header>
 
@@ -472,6 +482,7 @@ export default function App() {
           onPageChange={handlePageChange}
           onScrollRatioChange={handleScrollRatioChange}
           onContextMenu={activeEntry ? setContextMenuEvent : undefined}
+          onInsertedAssetTap={activeEntry ? handleAssetTap : undefined}
         />
       )}
       {content.type === 'html' && (
@@ -518,6 +529,36 @@ export default function App() {
           onAdd={async (asset) => { rewrite.addInsertedAsset(asset); }}
         />
       )}
+      {/* 差し込み画像アクションシート（サイズ変更・削除） */}
+      {isMkb && assetMenu && (() => {
+        const asset = rewrite.rules.insertedAssets?.find((a) => a.id === assetMenu.assetId);
+        return (
+          <div className="asset-action-sheet" onClick={() => setAssetMenu(null)}>
+            <div className="asset-action-body" onClick={(e) => e.stopPropagation()}>
+              <p className="asset-action-label">表示サイズ</p>
+              <div className="asset-action-sizes">
+                {[
+                  { key: 'inline', label: '行内（小）' },
+                  { key: 'block',  label: 'ブロック（中）' },
+                  { key: 'fullpage', label: '全面（大）' },
+                ].map((s) => (
+                  <button
+                    key={s.key}
+                    type="button"
+                    className={`ctx-btn ${(asset?.displaySize || 'block') === s.key ? '' : 'secondary'}`}
+                    onClick={() => { handleAssetResize(assetMenu.assetId, s.key); setAssetMenu(null); }}
+                  >{s.label}</button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="asset-action-delete"
+                onClick={() => { handleAssetDelete(assetMenu.assetId); setAssetMenu(null); }}
+              >削除</button>
+            </div>
+          </div>
+        );
+      })()}
       {/* §21 コンテキストメニュー（mkb + 本棚保存済みの場合のみ） */}
       {isMkb && activeEntry && (
         <ContextMenu

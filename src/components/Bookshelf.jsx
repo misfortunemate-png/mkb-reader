@@ -184,8 +184,13 @@ export default function Bookshelf({
                     {b.title}
                   </span>
                   <span className="bk-meta">
-                    {b.author ? `${b.author} — ` : ''}
-                    {relativeDate(b.lastOpenedAt) || relativeDate(b.addedAt)}
+                    {[
+                      b.author || null,
+                      b.charCount ? `${b.charCount.toLocaleString('ja')}字` : null,
+                      (relativeDate(b.lastOpenedAt) || relativeDate(b.addedAt))
+                        ? `最終閲覧 ${relativeDate(b.lastOpenedAt) || relativeDate(b.addedAt)}`
+                        : null,
+                    ].filter(Boolean).join(' · ')}
                   </span>
                 </button>
               </li>

@@ -26,6 +26,7 @@ export default function Paginator({
   onScrollRatioChange,
   // §21 コンテキストメニュー（長押し検出 → 呼び出し元へ通知）
   onContextMenu,
+  onInsertedAssetTap,
 }) {
   const enabled = mode === 'page';
   const frameRef = useRef(null);
@@ -271,6 +272,7 @@ export default function Paginator({
             rewriteRules={rewriteRules}
             rewriteHighlight={rewriteHighlight}
             insertedAssetUrl={insertedAssetUrl}
+            onInsertedAssetTap={onInsertedAssetTap}
           />
         </div>
       </div>

@@ -111,7 +111,7 @@ function applyInsertedAssets(md, assets, chapterId, assetUrlOf) {
     // §21 §15 拡張: displaySize に応じた CSS クラスを付与
     // <img> HTML を直接生成して rehype-raw で描画（img-inline/img-block/img-fullpage）
     const cls = `img-${a.displaySize || 'block'}`;
-    const imgMd = `\n<img src="${url}" alt="${alt}" class="${cls}">\n`;
+    const imgMd = `\n<img src="${url}" alt="${alt}" class="${cls}" data-asset-id="${a.id}">\n`;
     lines.splice(ln, 0, imgMd);
   }
   return lines.join('\n');

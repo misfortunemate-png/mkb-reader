@@ -250,7 +250,7 @@ export async function fileToBookEntry(file, mkbMetadata) {
     fileData,
     addedAt: Date.now(),
     lastOpenedAt: Date.now(),
-    // localSettings は Phase 3a §4.6 で予約フィールドとして追加
+    charCount: mkbMetadata?.charCount ?? undefined,
     localSettings: undefined,
   };
 }
