@@ -1,11 +1,11 @@
 # プロジェクトステータス
 
 プロジェクト: mkb-reader
-最終更新: 2026-04-29
+最終更新: 2026-04-29（§23 SVG化・差し込み画像タップシート・saveLastPosition修正 追加）
 更新者: PG（Claude Code）
 
 ## 現在のフェーズ
-**Phase 3c 完了（§21〜§26 + ヘッダー高さ設定）→ 実機検証待ち**
+**Phase 3c 完了（§21〜§26 + §23追加ポリッシュ）→ 実機検証待ち**
 
 ---
 
@@ -63,6 +63,15 @@
 - `reader.css`: `--icon-btn-size: calc(var(--header-h) - 10px)` 派生変数、`.icon-btn` がサイズに追従
 - `SettingsPanel.jsx`: 「ヘッダー」セクション — 36〜72px / 4px刻みスライダー
 
+### §23 追加: SVG化・差し込み画像タップシート・saveLastPosition修正（2回目コミット）
+- `Icons.jsx`（新規）: MenuIcon / ArrowLeftIcon / BookmarkIcon / PenIcon / DownloadIcon / SettingsIcon のインライン SVG — currentColor で テーマ追従、`1em` サイズ
+- `App.jsx`: ヘッダー全アイコンを SVG に置換; `handleOpenBook` で `getLocalSettings` を直接呼び最新の `lastPosition` を取得（stale books state 問題を解消）; `assetMenu` state + `AssetActionSheet`（表示サイズ変更3択＋削除）
+- `reader.css`: ハンバーガー非表示メディアクエリを削除（常時表示）; `img-inline` を `[data-asset-id]` 有無で分割（差し込み画像は縦3行・横95%・pointer）
+- `rewriteEngine.js`: 差し込み画像 HTML に `data-asset-id` 属性を付与
+- `MarkdownRenderer.jsx` / `Paginator.jsx`: `onInsertedAssetTap` prop を通貫
+- `useBookshelf.js` / `chatConverter.js`: `charCount` を book entry に永続化
+- `Bookshelf.jsx`: 2行目メタに 著者 · X字 · 最終閲覧 X前 を表示
+
 ---
 
 ## ❌ 未解決問題: モバイルレイアウトの異常表示
@@ -83,6 +92,7 @@ Chrome の **サイト別 zoom 状態**が `misfortunemate-png.github.io` に対
 ## ファイル状態（Phase 3c 完了時点）
 
 主要モジュール（Phase 3c 新設・変更）:
+- `src/components/Icons.jsx`（新規）
 - `src/components/ContextMenu.jsx`（新規）
 - `src/components/Toast.jsx`（新規）
 - `src/hooks/useSettings.js`: tapZone / latinFont / headerHeight 追加
