@@ -983,10 +983,10 @@ button {
   margin: 0 0.2em;
   cursor: zoom-in;
 }
-/* 差し込み画像のインライン（小）: 縦3行分・横95%以内 */
+/* 差し込み画像のインライン（小）: 120px・横95%以内 */
 .markdown img.img-inline[data-asset-id] {
   display: block;
-  height: calc(var(--line-height) * var(--font-size) * 3);
+  height: 120px;
   max-width: 95%;
   width: auto;
   object-fit: contain;
