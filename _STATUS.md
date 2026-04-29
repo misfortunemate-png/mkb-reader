@@ -1,164 +1,193 @@
 # プロジェクトステータス
 
 プロジェクト: mkb-reader
-最終更新: 2026-04-29 (Phase 2 全工程完了)
+最終更新: 2026-04-29
 更新者: PG（Claude Code）
 
 ## 現在のフェーズ
-Phase 11: Phase 3b 全工程実装完了 → 実機検証待ち
+**Phase 12: Phase 3b 完了（モバイル表示問題は未解決のまま打ち切り）→ Phase 3c 仕様策定待ち**
 
-## 完了事項（Phase 1）
-- §1〜§4 実装、検証デプロイ済み
-- 実機検証で §4 画像表示の不具合を確認 → Phase 2 で対応
+---
 
-## 完了事項（Phase 2 前半 — 検証済）
-- §4修正: 画像表示バグ
-  - urlTransform 上書きで blob: URL を許可
-  - mkbParser で Blob に MIME type 明示
-  - テスト画像を pure-JS PNG エンコーダで再生成（前回の base64 経由バイナリが破損）
-- §9 PWA + オフライン対応
-  - vite-plugin-pwa 導入、autoUpdate + skipWaiting/clientsClaim
-  - manifest / 12 entries precache（test.mkb 同梱）
-  - Google Fonts CSS / woff2 を CacheFirst で runtimeCaching
-- §8 本棚（仮実装）
-  - useBookshelf.js（IF 安定: saveBook/getBook/getAllBooks/deleteBook/updateLastOpened/findByTitle）
-  - Bookshelf.jsx（仮 UI、装飾なし、左スワイプ削除）
-  - App.jsx に二画面（shelf ↔ reader）構成導入
-- 副次修正: setext heading 化抑制（normalizeThematicBreaks）
-- CI 修正: .npmrc に legacy-peer-deps=true（vite-plugin-pwa の peer 不一致対応）
+## Phase 1〜Phase 3a の合格状況（前回までの記録）
 
-## 完了事項（Phase 2 後半 — 本コミット）
-- §5 フォント選択
-  - 3種（Noto Serif JP / Shippori Mincho / Zen Old Mincho）の Google Fonts 動的ロード
-  - 選択フォントだけ <link> を head に追加し、未選択は除去（無駄なダウンロード防止）
-  - 欧文ペアリング: Cormorant Garamond を仮採用、CSS 変数 `--font-body` の先頭に置く
-  - SettingsPanel にプレビュー（あいうえお ABCabc 0123）
-- §6 テーマ切替
-  - light / dark / sepia の 3 テーマを CSS 変数で定義
-  - `data-theme` 属性で即時切替、トランジション付き（200ms）
-  - SettingsPanel に色見本ボタン 3 つ
-- §7 表示カスタマイズ
-  - 文字サイズ / 行間 / 左右余白のスライダー（CSS 変数 `--font-size` / `--line-height` / `--content-padding` に即時反映）
-  - スワイプ方向（左右 / 上下）のトグル
-  - `---` 表示方式 4 種（改ページ / 区切り線 / 余白 / 装飾）
-    - スクロールモードでは `data-style="page-break"` を「余白」へ自動フォールバック
-  - プリセット 3 種（ゆったり / 標準 / コンパクト）
-- 設定一元管理 useSettings.js
-  - 全設定を `mkb-reader.settings.v1` にまとめて localStorage に保存
-  - Phase 1 の旧 `mkb-reader.mode` キーから自動移行
-  - DOM への即時反映（CSS 変数 / data-theme / フォント link）
-- SettingsPanel.jsx ボトムシート
-  - ヘッダー右の ⚙ ボタンで開閉
-  - オーバーレイで背景にビューア本文が薄く透けてプレビュー
+| Phase | 範囲 | 実機検証 |
+|---|---|---|
+| Phase 1 | §1〜§4（読込・MD描画・チャプターナビ・ページネーション） | 合格 |
+| Phase 2 | §5〜§9（フォント・テーマ・カスタマイズ・本棚・PWA） | 合格 |
+| Phase 3a | §10〜§13（HTML/JSON/画像/CBZ・リサイズ・禁則）+ 設定パネル改訂 + global/local 二層 | 合格 |
 
-## 動作確認（ローカル preview = production build）
-- ⚙ → 設定パネル開閉 OK
-- light → dark → sepia の即時切替 OK（背景 #faf8f5 ↔ #1a1a1a ↔ #f4ecd8 確認）
-- フォント切替で <link> tag が動的に差し替わる OK
-  （例: Shippori 選択時 mkb-font-noto-serif-jp が削除され mkb-font-shippori-mincho が追加）
-- フォントサイズ / 行間 / 余白スライダーが CSS 変数に即時反映 OK
-- 設定 localStorage に永続化 OK（リロード後も維持）
-- npm run build 成功（PWA: 12 entries / 539.74 KiB）
+---
 
-## Phase 2 実機検証結果（Pixel 10、2026-04-29）
-- §5/§6/§7/§8/§9 すべて OK
-- 修正済不具合: ページ送り時 wikilinks 不動 → frame onClick 方式に変更（8c1eca1）
+## 完了事項（Phase 3b — §14〜§18 + チャットログ取込まわりの改善）
 
-## 完了事項（Phase 3a — 4 コミット分）
-- **コミット A**: ViewerContent 抽象化 + §10 HTML/JSON
-  - useMkbLoader が ViewerContent（'mkb'|'html'|'json'|'images'）を返す
-  - HtmlRenderer（iframe sandbox、script 不可、テーマ色 inline 注入）
-  - JsonRenderer（自前ハイライト、再帰折りたたみ、1MB 超は打切り）
-- **コミット B**: §11 画像ビューア + CBZ + MD 内画像表示モード
-  - mkbParser に zipHasMarkdown / parseImagesZip
-  - useMkbLoader が .cbz / .zip(画像のみ) / 単体画像 / File[] を images 型に集約
-  - ImageViewer（1ページ1画像、ピンチ・ダブルタップ・スワイプ・キーボード）
-  - MdImage が naturalSize × imageDisplayMode で img-inline / block / fullpage を分類
-  - 画像タップで全画面モーダル
-  - useSettings に imageDisplayMode（'text-first'|'balance'|'image-first'）
-  - docs/test-files/test.cbz 同梱（pure-JS 生成 1.3KB）
-- **コミット C**: 設定パネル改訂 + グローバル/ローカル二層
-  - SettingsPanel をアコーディオン化、プリセット主導 UI に再構成
-  - 「文字」セクション内に詳細スライダーを折りたたみ
-  - スコープ切替「すべての本 / この本」
-  - 上書き項目のドット表示と各セクションのリセットボタン
-  - useSettings 全面改修: global（localStorage）+ local（IndexedDB.BookEntry.localSettings）
-  - useBookshelf に getLocalSettings / saveLocalSettings
-- **コミット D**: §12 画像リサイズ + §13 禁則改善
-  - useImageResize.js 新規（resizeImage / resizeImagesInZip、長辺 2048px）
-  - useBookshelf.saveBook が本棚保存時に各画像を自動リサイズ + 進捗状態
-  - App.jsx に進捗バッジ「N / M 画像を処理中…」
-  - reader.css 禁則ルール追加（h1-6 の break-after avoid、p/li の orphans/widows、
-    blockquote/pre/table/li の break-inside avoid）
-  - usePagination が document.fonts.ready / 画像 load / フォント差替時に再計算
+### 機能本体
+- **§14 読み替え**: rewriteEngine.js（純粋関数）/ useRewrite.js / RewritePanel.jsx
+  - 話者名 / テキスト置換 / 行非表示 のローカル設定 CRUD
+  - rehype-raw 追加で `<mark class="rewritten">` ハイライト描画
+  - SettingsPanel の「読み替えハイライト 表示/非表示」トグル
+- **§15 画像差し込み**: ImageInserter.jsx
+  - ファイルピッカー + プレビュー + alt + 行番号 + §12 リサイズ適用
+  - InsertedAsset を localSettings.rewrite.insertedAssets に保存
+  - rewriteEngine.applyInsertedAssets で行番号順に MD 内挿入
+  - App.jsx で Blob URL キャッシュ管理（id → URL の Map、book 切替時に revoke）
+- **§16 MKB エクスポート**: useExport.js / ExportDialog.jsx
+  - 原本展開 → applyRewrite → 新 ZIP 構築 → `<a download>` でダウンロード
+  - 「読み替え適用 ON/OFF」のみ。ハイライト保存オプションは仕様書から削除
+- **§18 チャットログ変換**: chatConverter.js / ChatImporter.jsx
+  - Claude.ai conversations.json → mkb 形式 ZIP（fileType:'mkb' で保存）
+  - 話者名は `**human**` Bold MD として埋め込み（読み替え対象になる形）
+  - メッセージ間は `---` 区切り（§7 表示方式設定が効く）
+  - **ツリー構造（current_leaf_message_uuid + parent_message_uuid）対応**:
+    - 「最終分岐のみ / 全分岐」トグル
+    - 平坦リスト（parent 情報なし）への早期 return フォールバック
+  - **拡張思考・ツールブロック対応**:
+    - content[] 配列を走査し type='thinking'/'tool_use'/'tool_result' を `<details>` 折りたたみ表示
+    - 既定で折りたたみ、応答本文を主役に
 
-## 動作確認（ローカル production preview）
-- 本棚 → サンプル → ビューア表示 OK
-- 設定パネルの新レイアウト（スコープ切替・セクション・プリセット）OK
-- chapter-three 画像が img-inline 自動分類（64px/375vw=17% < balance.inline 25%）
-- npm run build 成功（precache 12 entries / 559.91 KiB）
+### 検証用導線
+- 同梱サンプル `test-conversations.json`（5 会話: 技術相談 / 創作 / 拡張思考あり / 編集あり / 短い雑談）
+- ウェルカム画面の「💬 チャットログ取込（取込フロー：5会話）」をタップで ChatImporter 自動 fetch
+- 設定パネルに「データ管理（検証用）」セクション
+  - 「本棚を全削除」（IndexedDB store.clear）
+  - 「設定を初期値に戻す」（localStorage の `mkb-reader.settings.v1` 削除 + global を DEFAULTS へ）
 
-## Phase 3a 実機検証結果（Pixel 10、2026-04-29）
-- §10 HTML 表示: OK（script 不実行、外部リンクは端末ブラウザで開く）
-- §10 JSON 表示: OK（折りたたみ・色分け）
-- §11 CBZ ビューア: OK（実画像 4 枚で表示確認）
-- §12 / §13 / §4.5 / §4.6: 配信中の機能は build & smoke OK、運用で発見次第対応
-- 検証中に検出した不具合（修正済）:
-  - HTML 内のリンクが効かない → iframe sandbox に allow-popups 追加
-    + <base target="_blank"> + rel=noopener noreferrer 強制（2aa2fd9）
-  - test.cbz 古いキャッシュが残る → runtime キャッシュを NetworkFirst に変更、
-    cacheName を v2 に切替（bed1107）
+---
 
-## 完了事項（Phase 3b — 4 コミット分 + ステータス）
-- **§18 チャットログ変換**
-  - chatConverter（parseConversationsJson / conversationToMkbData / mkbDataToZipBuffer / conversationToBookEntry）
-  - ChatImporter.jsx（JSON 取り込み画面、複数選択、本棚一括保存）
-  - 本棚ヘッダー「💬 取込」ボタンと view='chat-import' を追加
-  - サンプル test-conversations.json を同梱
-- **§14 読み替え**
-  - rewriteEngine.js（純粋関数: applyRewrite + 適用順序 speakerNames → replacements → hiddenRanges → insertedAssets）
-  - useRewrite.js（CRUD フック、localSettings.rewrite を IndexedDB に永続化）
-  - RewritePanel.jsx（話者名入力 / テキスト置換リスト / 非表示範囲リスト / 原本プレビュー折りたたみ）
-  - rehype-raw 追加で <mark class="rewritten"> ハイライトを描画
-  - SettingsPanel に「読み替えハイライト 表示/非表示」トグル（global/local 両対応）
-  - ヘッダーに ✏ 読み替えボタン
-- **§15 画像差し込み**
-  - ImageInserter.jsx（プレビュー、alt、行番号、§12 リサイズ適用）
-  - applyInsertedAssets を rewriteEngine に追加（行番号順、後ろから挿入で位置ずれ防止）
-  - App.jsx で InsertedAsset の Blob URL キャッシュ（id → URL の Map、book 切替時に revoke）
-  - RewritePanel に「差し込み画像」セクション
-- **§16 MKB エクスポート**
-  - useExport.js（exportMkb: 原本展開 → applyRewrite 適用 → ZIP 構築 → <a download>）
-  - ExportDialog.jsx（タイトル / 著者 / 読み替え適用 の 3 項目のみ）
-  - ヘッダーに ↓ エクスポートボタン
-  - 仕様書から「読み替え箇所のハイライトを残す」オプションを削除（Q2 — Phase 3b 保留）
+## ❌ 未解決問題: モバイルレイアウトの異常表示
 
-## 動作確認（ローカル production preview）
-- 「💬 取込」ボタン → ChatImporter 画面遷移 OK
-- サンプル mkb 開く → ★ 保存 → ✏ 読み替えで「mkb-reader → マーク・リーダー」置換
-  → ハイライト 2 箇所が `<mark class="rewritten">` で薄背景表示 OK
-- ↓ エクスポートボタンで ExportDialog 開く OK
-- npm run build 成功（precache 15 entries / 762.83 KiB）
+**症状**:
+Pixel 10 実機で開くと、ページ全体が **デスクトップ幅（≈1080 CSS px）でレンダリング**され、
+端末の物理表示で 38% 程度に縮小されて見える。フォントもアイコンも極小化。
+本来 `width=device-width` で 412 CSS px viewport になるべきところが機能していない。
 
-## 未完了事項（Pixel 10 実機検証）
-- §18: test-conversations.json を取り込んで会話一覧表示・変換・本棚保存
-- §14: 話者名読み替え（human → ショウゴ等）／テキスト置換／非表示範囲
-- §14: 設定パネルの「読み替えハイライト」トグルでハイライト On/Off 切替
-- §15: 画像差し込み → リサイズ → 表示 → 削除の一連
-- §16: 読み替え適用ありで MKB ダウンロード → 本棚に再取込で読み替え済み確認
-- §16: 読み替え適用なしで原本そのままダウンロード確認
-- 統合: JSON 取り込み → 話者名読み替え → 画像差し込み → MKB エクスポート の一連
+**ユーザー所見**:
+- Phase 3b 前半までは正常（ピンチで拡大縮小可能、モバイル適正サイズ）
+- 「スキップ理由を可視化したあたり（commit `bd8040c`）」から崩れ始めた印象
+- ヘッダーで `mkb-reader` 左端、`取込 / 開く` ボタンが「はるか右」に陣取って見える
+
+**潰した想定（→ いずれも症状解消せず）**:
+
+1. **`@media (max-width: 480px)` でフォント/icon-btn 縮小** — 構造ではなくサイズだけの対症療法、ユーザー却下
+2. **viewport meta に `minimum-scale=1.0` 追加** — ピンチアウト不可になり UX 悪化、却下
+3. **`html, body { max-width: 100vw; overflow-x: hidden }` 防御** — 効果なし、ロールバックで除去
+4. **`bd8040c` 以降 6 コミット rollback して `e3e5262` まで戻す** — 症状継続
+5. **PWA アンインストール → 再インストール** — 症状継続
+6. **「設定を初期値に戻す」（localStorage クリア）** — 症状継続
+7. **「本棚を全削除」（IndexedDB クリア）** — 症状継続
+
+**裏取りした事実**:
+- preview を 1080×2424 viewport（Pixel 10 物理画素相当）にリサイズすると **ユーザーの screenshot とピクセル一致**で症状再現
+- 412 viewport では `document.documentElement.scrollWidth = 412` で**はみ出し要素ゼロ**を確認（CSS overflow ではない）
+- index.html の viewport meta は Phase 1 から `width=device-width, initial-scale=1.0, viewport-fit=cover` のまま変わっていない
+- ビルド出力 `dist/index.html` も同じ viewport meta を持つ
+- GitHub Pages の curl 確認で配信は正常（test.cbz 19.8MB が 200 で返る等）
+- Service Worker の `skipWaiting + clientsClaim` は Phase 2 後半から設定済み
+
+**有力仮説（未検証）**:
+
+(A) **Chrome のサイト別 zoom 状態**が `misfortunemate-png.github.io` に対して 38% 程度で固定されている。
+- これは PWA storage（IndexedDB / localStorage）ではなくブラウザ側の状態
+- PWA 再インストールでは消えない可能性が高い
+- 復旧手順: Android **設定 → アプリ → Chrome → ストレージ → サイト別ストレージ**
+  から `misfortunemate-png.github.io` を選択して削除、または Chrome 全体のデータ削除
+
+(B) **GitHub Pages の Service Worker が古いバンドルを永続的に返している**
+- `skipWaiting + clientsClaim` は新 SW インストール後のクライアント全体の更新を保証するが、
+  最初の SW が installed されたバージョンに何か別の問題があった可能性
+- chrome://serviceworker-internals で確認すると分かるかもしれない
+
+(C) **Pixel 10 の Chrome 設定で「ピンチ・ズーム」の強制有効化や、ページ拡大の自動補正が効いている**
+- Settings → ユーザー補助 → テキストの拡大率 や 表示サイズ
+- chrome://settings/accessibility 内の「ページのズーム」既定値
+
+**未試行の対処候補**:
+
+- **完全に新しいデバイス／ブラウザで動作確認**（Chrome 別プロファイル、Firefox、別 Android 端末）
+  → これで正常表示なら Pixel 10 の固有状態が原因と確定できる
+- **Android Chrome の「設定 → サイト設定 → ズーム」を一括リセット**
+- **Chrome の DevTools リモートデバッグ**で Pixel 10 の実 viewport / DPR / zoom 値を読み取る
+  - PC と USB 接続して `chrome://inspect` 経由
+  - これで `window.innerWidth` / `window.devicePixelRatio` / `window.visualViewport.scale` を直接測れる
+- **Pixel 10 の表示サイズ・フォントサイズ設定を確認**
+  - 「設定 → ディスプレイ → 表示サイズ」を「大」にしている場合、Chrome 上でも基準が変わる
+- **Pixel 10 で別の PWA アプリ（同サイズ規模）を確認**
+  - 同様の症状が出るなら端末固有の表示問題、出ないなら本アプリ固有
+
+---
+
+## ファイル状態（Phase 3b 完了時点）
+
+主要モジュール:
+- `src/utils/chatConverter.js`: 平坦リスト対応 + content[] 走査 + 思考折りたたみ
+- `src/utils/rewriteEngine.js`: 純粋関数、speakerNames → replacements → hiddenRanges → insertedAssets の順
+- `src/hooks/useSettings.js`: global/local 二層 + resetGlobal 追加
+- `src/hooks/useRewrite.js`: localSettings.rewrite の CRUD
+- `src/hooks/useBookshelf.js`: deleteAllBooks, getLocalSettings, saveLocalSettings
+- `src/hooks/useExport.js`: exportMkb（純粋関数モジュール）
+- `src/components/`: ChatImporter, RewritePanel, ImageInserter, ExportDialog 新設
+
+仕様書:
+- `docs/spec-phase3b.md` v1.2: §0 設計思想（読み替え装置）+ ツリー追補 v1.2 + 思考追補 v1.1
+- `docs/instructions-phase3b.md`
+
+検証用ファイル:
+- `public/test-conversations.json`: 5 会話のサンプル（編集あり・拡張思考あり含む）
+- `docs/errorScreenshot/`: モバイル表示問題の Pixel 10 実機 screenshot 3 枚
+
+---
 
 ## 次のアクション
-- 誰が: ショウゴ
-- 何を:
-  1. main へ push されたデプロイで Pixel 10 実機検証
-  2. 不具合・違和感を PM に報告
-  3. 問題なければ Phase 3c（チャットログの §18 拡張・Google Drive 連携）または
-     §17 縦書き / 残課題の仕様策定へ
 
-## 備考
-- Phase 2 の受入基準（13項目）はすべて実装上は満たしている。実機での主観評価が残作業。
-- テスト用画像置き場 docs/test-images/ を新設。次回検証時に実画像を用いる。
-- Bookshelf.jsx は仮実装のまま据え置き（Phase 3 以降で全面差替予定）。
-- vite-plugin-pwa@1.2.0 と Vite 8 の peer 不一致は .npmrc の legacy-peer-deps=true で許容中。
+- 誰が: PM（クリーデ）+ ショウゴ
+- 何を:
+  1. Phase 3c の仕様策定を進める（Google Drive 連携 / Phase 3a-c 残課題等）
+  2. モバイル表示問題は **次のセッションで別件として深掘り**
+     - 上記「未試行の対処候補」を優先順位付け
+     - リモートデバッグで実 viewport 値の取得が最有効
+  3. 縦書き（§17）も Phase 3c または別フェーズで策定
+
+---
+
+## 引き継ぎ向けの技術的補足
+
+### 設計思想の要点（次セッションでも遵守）
+- **原本不変**: BookEntry.fileData は何があっても触らない
+- **読み替え = サイドカー**: 全変更は localSettings.rewrite に保存
+- **rewriteEngine は pure**: 副作用ゼロ、UI から完全分離（将来の長押しメニュー等から再利用可能にする）
+- **設定は二層**: global（localStorage）+ local（IndexedDB.BookEntry.localSettings.display）
+
+### モバイル表示問題のデバッグ手順案
+PC と Pixel 10 を USB 接続し、PC Chrome で `chrome://inspect/#devices` を開いて Inspect。
+Console で次を実行すれば原因の絞り込みが可能:
+```js
+({
+  innerWidth: window.innerWidth,                    // 期待: 412
+  outerWidth: window.outerWidth,
+  documentElementClientWidth: document.documentElement.clientWidth,
+  visualViewportWidth: window.visualViewport?.width,
+  visualViewportScale: window.visualViewport?.scale, // 期待: 1
+  devicePixelRatio: window.devicePixelRatio,         // Pixel 10 想定 ~2.625
+  zoom: getComputedStyle(document.documentElement).zoom,
+});
+```
+
+`innerWidth` が 1080 なら viewport meta が無視されている → meta タグまたは Chrome 設定の問題。
+`visualViewportScale` が 0.38 程度なら **Chrome のサイト固有ズームが 38%** で固定されている可能性大 → サイトデータ削除で解消。
+
+### コミットログ（Phase 3b 関連）
+```
+908ce23 平坦リスト対応の再適用 + 設定を初期値に戻す
+e3e5262 編集あり会話のツリー構造を実 Claude.ai 形式に修正
+01ffdd7 取り込みフィルタ + サンプル取込導線 + 本棚全削除（検証用）
+6a5c9d5 §18 ツリー構造を辿り「最終分岐のみ」を取り込む
+cc5b62c §18 拡張思考・ツールブロックを折りたたみ表示
+149fa8a §16 MKBエクスポート + 仕様書修正 + ステータス更新
+f7a0c1d §15 画像差し込み（insertedAssets + ImageInserter）
+fe84dea §14 読み替え（rewriteEngine + useRewrite + RewritePanel）
+4d68f7f §18 チャットログ変換（Claude.ai JSON → mkb）
+```
+
+ロールバックで破棄済（再適用済の `selectActiveBranch` フィックスを除く）:
+- bd8040c フィルタ緩和 + スキップ診断
+- 98f60ad / 6d52ce3 / 79b6dd9 / 029c9a8 モバイル対症療法と撤回
