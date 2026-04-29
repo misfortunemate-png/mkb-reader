@@ -71,9 +71,9 @@ export const DEFAULTS = {
 // §11: 画像表示プリセットの閾値（仕様書 §11 表）
 // 長辺 / viewportWidth がこの値以下: inline / 以上: fullpage
 export const IMAGE_DISPLAY_THRESHOLDS = {
-  'text-first': { inline: 0.15, fullpage: 0.90 },
-  'balance':    { inline: 0.25, fullpage: 0.75 },
-  'image-first':{ inline: 0.10, fullpage: 0.50 },
+  'text-first': { inline: 0.08, fullpage: 0.90 },
+  'balance':    { inline: 0.10, fullpage: 0.75 },
+  'image-first':{ inline: 0.05, fullpage: 0.50 },
 };
 
 // プリセット（仕様書 §7）
