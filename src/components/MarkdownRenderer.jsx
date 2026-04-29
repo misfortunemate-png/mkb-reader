@@ -47,6 +47,7 @@ function MdImage({ src, alt, imageDisplayMode = 'balance', onClick, onAssetTap, 
       className={klass}
       onLoad={onLoad}
       onClick={handleClick}
+      data-asset-id={assetId || undefined}
     />
   );
 }
