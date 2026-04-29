@@ -56,7 +56,7 @@ export default function App() {
   // §5 §6 §7 + §4.6 二層: 開いている本の id を渡してローカル設定を有効化
   const {
     settings, update, applyPreset, activePreset,
-    scope, setScope, hasLocal, overriddenKeys, resetLocalKey,
+    scope, setScope, hasLocal, overriddenKeys, resetLocalKey, resetGlobal,
   } = useSettings({
     activeBookId: activeEntry?.id,
     getLocalSettings,
@@ -438,6 +438,12 @@ export default function App() {
             await deleteAllBooks();
             setActiveEntry(null);
             alert('本棚を空にしました');
+          }
+        }}
+        onResetGlobalSettings={() => {
+          if (confirm('グローバル設定（フォント・テーマ・文字サイズ・余白等）をすべて初期値に戻します。よろしいですか？')) {
+            resetGlobal();
+            alert('設定を初期値に戻しました');
           }
         }}
       />

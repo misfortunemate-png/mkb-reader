@@ -198,14 +198,21 @@ function titleOf(conv) {
 //      残った部分はフォールバックで全件返す（情報を失わないことを優先）
 function selectActiveBranch(messages, leafHint) {
   if (!Array.isArray(messages) || messages.length === 0) return [];
+  const parentOf = (m) => m?.parent_message_uuid || m?.parent_uuid || m?.parent || null;
+
+  // 何を: ツリー情報の有無を判定し、無ければ全件返す
+  // なぜ: parent_message_uuid を持つメッセージが 1 件もなく、leafHint も無いなら、
+  //   分岐の概念が無い「平坦なメッセージ列」とみなす。この早期 return が無いと、
+  //   後段の「葉から遡る」ロジックが最後の 1 件しか拾えず、human の発言が消える事案が出る
+  const hasTreeData = leafHint || messages.some((m) => parentOf(m));
+  if (!hasTreeData) return messages;
+
   // uuid → message
   const byId = new Map();
   for (const m of messages) {
     const id = m.uuid || m.id;
     if (id) byId.set(String(id), m);
   }
-  // 各メッセージが持つ親 uuid（フィールド名の揺れに寛容に）
-  const parentOf = (m) => m?.parent_message_uuid || m?.parent_uuid || m?.parent || null;
   // 「親として参照されている uuid 集合」を作って、参照されていない＝葉候補を見つける
   const referencedAsParent = new Set();
   for (const m of messages) {
@@ -238,6 +245,10 @@ function selectActiveBranch(messages, leafHint) {
     if (!pid) break;
     cur = byId.get(String(pid)) || null;
   }
+  // 何を: 葉から root まで完全に辿れず path が短すぎる場合は全件にフォールバック
+  // なぜ: ツリー上一部のメッセージしか parent を持たない部分構造で、path が 1 件などに
+  //   なって元データを失うのを防ぐ。「全件返す」方が情報保存的に安全
+  if (path.length <= 1 && messages.length > 1) return messages;
   if (path.length === 0) return messages;
   return path.reverse();
 }

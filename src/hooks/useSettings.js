@@ -235,6 +235,15 @@ export function useSettings({ activeBookId, getLocalSettings, saveLocalSettings 
     }
   }, [scope, activeBookId, local, saveLocalSettings]);
 
+  // 何を: グローバル設定を DEFAULTS に強制リセット（デバッグ・初期化用）
+  // なぜ: 検証中に永続化された設定値が壊れて表示が乱れるケースを救う。
+  //   通常の reset() は scope に応じて local/global を切り替えるが、
+  //   こちらは scope に関係なく必ず global を初期化する
+  const resetGlobal = useCallback(() => {
+    setGlobal({ ...DEFAULTS });
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  }, []);
+
   // 個別キーをリセット（ローカルだけからその key を削除しグローバルへ戻す）
   const resetLocalKey = useCallback((key) => {
     if (!activeBookId || !saveLocalSettings) return;
@@ -274,7 +283,7 @@ export function useSettings({ activeBookId, getLocalSettings, saveLocalSettings 
 
   return {
     settings,
-    update, applyPreset, reset, resetLocalKey,
+    update, applyPreset, reset, resetLocalKey, resetGlobal,
     activePreset,
     scope, setScope,
     hasLocal: !!local,

@@ -65,6 +65,8 @@ export default function SettingsPanel({
   // 本棚全削除（検証用）
   bookCount = 0,
   onDeleteAllBooks,
+  // 設定を初期値に戻す（検証用）
+  onResetGlobalSettings,
 }) {
   useEffect(() => {
     if (!open) return;
@@ -283,22 +285,44 @@ export default function SettingsPanel({
         </Section>
 
         {/* データ管理 — 検証用。設計思想に反する操作（破壊的）なので最下部に配置 */}
-        {onDeleteAllBooks && (
+        {(onDeleteAllBooks || onResetGlobalSettings) && (
           <Section title="データ管理（検証用）" defaultOpen={false}>
-            <div className="settings-row">
-              <span className="rw-hint" style={{ flex: 1 }}>
-                本棚: {bookCount} 件
-              </span>
-              <button
-                type="button"
-                className="settings-btn danger"
-                onClick={onDeleteAllBooks}
-                disabled={bookCount === 0}
-              >本棚を全削除</button>
-            </div>
-            <p className="rw-hint" style={{ marginTop: '0.4rem' }}>
-              IndexedDB の books ストアを空にします。元に戻せません。
-            </p>
+            {onDeleteAllBooks && (
+              <>
+                <div className="settings-row">
+                  <span className="rw-hint" style={{ flex: 1 }}>
+                    本棚: {bookCount} 件
+                  </span>
+                  <button
+                    type="button"
+                    className="settings-btn danger"
+                    onClick={onDeleteAllBooks}
+                    disabled={bookCount === 0}
+                  >本棚を全削除</button>
+                </div>
+                <p className="rw-hint" style={{ marginTop: '0.4rem', marginBottom: '0.8rem' }}>
+                  IndexedDB の books ストアを空にします。元に戻せません。
+                </p>
+              </>
+            )}
+            {onResetGlobalSettings && (
+              <>
+                <div className="settings-row">
+                  <span className="rw-hint" style={{ flex: 1 }}>
+                    グローバル設定（フォント・テーマ・サイズ等）
+                  </span>
+                  <button
+                    type="button"
+                    className="settings-btn danger"
+                    onClick={onResetGlobalSettings}
+                  >設定を初期値に戻す</button>
+                </div>
+                <p className="rw-hint" style={{ marginTop: '0.4rem' }}>
+                  localStorage の設定値を消去し、すべてデフォルトに戻します。
+                  本棚データは消えません。本ごとのローカル設定（この本）も消えません。
+                </p>
+              </>
+            )}
           </Section>
         )}
       </div>
