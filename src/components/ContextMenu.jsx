@@ -43,18 +43,16 @@ export default function ContextMenu({
   // メニュー外 pointerdown で閉じる（長押し終了直後の誤閉じ防止のため 100ms 遅延）
   useEffect(() => {
     if (!event) return;
-    let active = false;
+    let onOutside = null;
     const t = setTimeout(() => {
-      active = true;
-      function onOutside(e) {
+      onOutside = (e) => {
         if (menuRef.current && !menuRef.current.contains(e.target)) onClose?.();
-      }
+      };
       document.addEventListener('pointerdown', onOutside);
-      return () => document.removeEventListener('pointerdown', onOutside);
     }, 100);
     return () => {
       clearTimeout(t);
-      if (!active) return;
+      if (onOutside) document.removeEventListener('pointerdown', onOutside);
     };
   }, [event, onClose]);
 
