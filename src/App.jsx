@@ -41,6 +41,9 @@ const SAMPLES = [
   { label: '🧾 サンプル JSON',                 url: `${import.meta.env.BASE_URL}test.json`, name: 'test.json' },
   { label: '🖼 サンプル CBZ（縦横/色味/サイズ違い 4枚）', url: `${import.meta.env.BASE_URL}test.cbz`, name: 'test.cbz' },
   { label: '💬 チャットログ取込（取込フロー：5会話）',     url: `${import.meta.env.BASE_URL}test-conversations.json`, name: 'test-conversations.json', kind: 'chat-import' },
+  // §29 検証用（2ファイルをライブラリで結合→エクスポートを確認する）
+  { label: '🔗 §29テスト A（ファイル接続・画像切り出し用）', url: `${import.meta.env.BASE_URL}test-29a.mkb`, name: 'test-29a.mkb' },
+  { label: '🔗 §29テスト B（ファイル接続用・Aと結合する）',  url: `${import.meta.env.BASE_URL}test-29b.mkb`, name: 'test-29b.mkb' },
 ];
 
 export default function App() {
