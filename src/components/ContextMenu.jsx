@@ -21,6 +21,7 @@ export default function ContextMenu({
   onHideLine,      // (lineNumber) => void
   onEditLine,      // (lineNumber, original, display) => void
   onInsertImage,   // ({ lineNumber, displaySize, file }) => void
+  onImportImage,   // §29.2: ({ src, mimeType, altText }) => void — 画像切り出し
   onUndo,          // () => void
   canUndo,
   onOpenRewrite,
@@ -74,8 +75,11 @@ export default function ContextMenu({
     return lines.slice(start, end + 1).join('\n');
   }
 
-  // 画面端はみ出し補正
-  const menuH = view === 'menu' ? 250 : view === 'edit' ? 220 : 200;
+  // §29.2: 長押し対象が img 要素かを判定（ライブラリに切り出す 表示判定）
+  const isImage = event?.target?.tagName?.toLowerCase() === 'img';
+
+  // 画面端はみ出し補正（画像メニュー追加で高さが伸びる場合を考慮）
+  const menuH = view === 'menu' ? (isImage ? 290 : 250) : view === 'edit' ? 220 : 200;
   const posX = Math.max(8, Math.min(event.x, window.innerWidth - MENU_W - 8));
   const posY = Math.max(8, Math.min(event.y, window.innerHeight - menuH - 8));
 
@@ -122,6 +126,20 @@ export default function ContextMenu({
             setView('size');
           }}
         >ここに画像を差し込む</button>
+        {/* §29.2: 画像長押し時のみ「ライブラリに切り出す」を表示 */}
+        {isImage && onImportImage && (
+          <>
+            <div className="ctx-divider" />
+            <button
+              type="button" className="ctx-item"
+              onClick={() => {
+                const img = event.target;
+                onImportImage?.({ src: img.src, mimeType: '', altText: img.alt || '' });
+                onClose?.();
+              }}
+            >ライブラリに切り出す</button>
+          </>
+        )}
         <div className="ctx-divider" />
         <button
           type="button" className="ctx-item"

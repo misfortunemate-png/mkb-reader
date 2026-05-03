@@ -48,6 +48,7 @@ export default function LibraryView({
   libraries,
   books,           // BookEntry[] — アイテム追加時のピッカー用
   onOpenLibraryItem, // (bookEntry, libraryEdits) => void
+  onOpenJoinedItem,  // §29.1: (node) => void — joined ノードを開く
   onCreateLibrary,
   onDeleteLibrary,
   onRenameLibrary,
@@ -56,6 +57,8 @@ export default function LibraryView({
   onRemoveNode,
   onMoveNode,
   onRenameNode,
+  onJoinItems,       // §29.1: (libraryId, parentId, selectedNodes) => void
+  onExportMkb,       // §29.3: (libraryId, targetNodeId) => void
 }) {
   // 選択中のライブラリ ID
   const [selectedLibId, setSelectedLibId] = useState(null);
@@ -63,6 +66,8 @@ export default function LibraryView({
   const [path, setPath] = useState([]);
   // 編集モード
   const [editMode, setEditMode] = useState(false);
+  // §29.1: 編集モードでのマルチセレクト（nodeId の Set）
+  const [selectedNodeIds, setSelectedNodeIds] = useState(new Set());
   // ライブラリ名変更
   const [renamingLib, setRenamingLib] = useState(null); // { id, value }
   // ノード名変更
@@ -107,14 +112,38 @@ export default function LibraryView({
     setSelectedLibId(id);
     setPath([]);
     setEditMode(false);
+    setSelectedNodeIds(new Set());
   }
 
   // ───── アイテムを開く ─────
   function handleOpenItem(node) {
+    if (node.type === 'joined') {
+      // §29.1: 結合ノードは App.jsx の専用ハンドラで処理
+      onOpenJoinedItem?.(node);
+      return;
+    }
     if (!node.sourceBookId) return;
     const entry = books.find((b) => b.id === node.sourceBookId);
     if (!entry) return;
     onOpenLibraryItem?.(entry, node.edits || null);
+  }
+
+  // §29.1: 編集モードでのノード選択トグル（フォルダ以外が対象）
+  function toggleNodeSelect(nodeId) {
+    setSelectedNodeIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }
+
+  // §29.1: 結合実行
+  function handleJoinSelected() {
+    if (selectedNodeIds.size < 2 || !selectedLib) return;
+    const nodes = [...selectedNodeIds].map((id) => selectedLib.nodes[id]).filter(Boolean);
+    const parentId = path.length > 0 ? path[path.length - 1] : null;
+    onJoinItems?.(selectedLibId, parentId, nodes);
   }
 
   // ───── ライブラリ作成 ─────
@@ -301,10 +330,27 @@ export default function LibraryView({
                   </button>
                 </>
               )}
+              {/* §29.1: 2件以上選択時に「結合」を表示 */}
+              {editMode && selectedNodeIds.size >= 2 && (
+                <button type="button" className="lib-tool-btn join"
+                  onClick={handleJoinSelected}>
+                  結合({selectedNodeIds.size})
+                </button>
+              )}
+              {/* §29.3: MKBとして出力 */}
+              {editMode && (
+                <button type="button" className="lib-tool-btn export"
+                  onClick={() => {
+                    const targetNodeId = path.length > 0 ? path[path.length - 1] : null;
+                    onExportMkb?.(selectedLibId, targetNodeId);
+                  }}>
+                  MKB出力
+                </button>
+              )}
               <button
                 type="button"
                 className={`lib-tool-btn ${editMode ? 'active' : ''}`}
-                onClick={() => setEditMode((v) => !v)}
+                onClick={() => { setEditMode((v) => !v); setSelectedNodeIds(new Set()); }}
               >
                 {editMode ? '完了' : '編集'}
               </button>
@@ -332,17 +378,29 @@ export default function LibraryView({
                     >⠿</span>
                   )}
 
+                  {/* §29.1: 編集モード時にフォルダ以外のノードはチェックボックスを表示 */}
+                  {editMode && node.type !== 'folder' && (
+                    <input
+                      type="checkbox"
+                      className="lib-node-check"
+                      checked={selectedNodeIds.has(node.id)}
+                      onChange={() => toggleNodeSelect(node.id)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  )}
+
                   {/* ノード本体 */}
                   <button
                     type="button"
-                    className={`lib-node-btn ${node.type}`}
+                    className={`lib-node-btn ${node.type} ${selectedNodeIds.has(node.id) ? 'selected' : ''}`}
                     onClick={() => {
                       if (node.type === 'folder') drillDown(node.id);
-                      else if (!editMode) handleOpenItem(node);
+                      else if (editMode) toggleNodeSelect(node.id);
+                      else handleOpenItem(node);
                     }}
                   >
                     <span className="lib-node-icon">
-                      {node.type === 'folder' ? '📁' : '📄'}
+                      {node.type === 'folder' ? '📁' : node.type === 'joined' ? '🔗' : '📄'}
                     </span>
                     {/* ノードリネーム */}
                     {renamingNode?.id === node.id ? (

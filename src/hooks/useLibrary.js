@@ -224,6 +224,30 @@ export function useLibrary() {
     });
   }, [updateLib]);
 
+  // 何を: 結合ノード（type:'joined'）を追加する
+  // なぜ: §29.1 — 複数 BookEntry を1ノードとして連結して閲覧できるようにする
+  //   データモデル: sourceBookIds: string[]（sourceBookId配列方式, PG裁量 D-006）
+  const addJoinedItem = useCallback(async (libraryId, parentId, sourceBookIds, name) => {
+    let created = null;
+    await updateLib(libraryId, (lib) => {
+      const node = {
+        id: newId(),
+        type: 'joined',
+        name: name || '結合',
+        parentId: parentId || null,
+        sourceBookIds: [...sourceBookIds],
+      };
+      created = node;
+      const nodes = { ...lib.nodes, [node.id]: node };
+      if (parentId && nodes[parentId]) {
+        nodes[parentId] = { ...nodes[parentId], children: [...(nodes[parentId].children || []), node.id] };
+      }
+      const rootNodes = parentId ? lib.rootNodes : [...lib.rootNodes, node.id];
+      return { ...lib, nodes, rootNodes };
+    });
+    return created;
+  }, [updateLib]);
+
   // ───── BookEntry 削除連携（§27 カスケード削除） ─────
 
   // 何を: 指定 bookId を参照している全ライブラリ名を返す
@@ -234,7 +258,8 @@ export function useLibrary() {
     return all
       .filter((lib) =>
         Object.values(lib.nodes).some(
-          (n) => n.type === 'item' && n.sourceBookId === bookId
+          (n) => (n.type === 'item' && n.sourceBookId === bookId) ||
+                 (n.type === 'joined' && (n.sourceBookIds || []).includes(bookId))
         )
       )
       .map((lib) => lib.name);
@@ -248,15 +273,24 @@ export function useLibrary() {
     const all = await awaitReq(store.getAll());
     for (const lib of all) {
       const nodeIds = Object.keys(lib.nodes).filter(
-        (id) => lib.nodes[id].type === 'item' && lib.nodes[id].sourceBookId === bookId
+        (id) => (lib.nodes[id].type === 'item' && lib.nodes[id].sourceBookId === bookId) ||
+                (lib.nodes[id].type === 'joined' && (lib.nodes[id].sourceBookIds || []).includes(bookId))
       );
       if (nodeIds.length === 0) continue;
       let updated = { ...lib };
       for (const nodeId of nodeIds) {
-        // removeNode と同じロジックをインライン（hooksは呼べないので直接実装）
         const node = updated.nodes[nodeId];
         if (!node) continue;
         const nodes = { ...updated.nodes };
+        if (node.type === 'joined') {
+          // §29: joined ノードは対象 bookId だけ除去し、空になれば削除
+          const remaining = (node.sourceBookIds || []).filter((id) => id !== bookId);
+          if (remaining.length > 0) {
+            nodes[nodeId] = { ...node, sourceBookIds: remaining };
+            updated = { ...updated, nodes };
+            continue;
+          }
+        }
         delete nodes[nodeId];
         if (node.parentId && nodes[node.parentId]) {
           nodes[node.parentId] = {
@@ -280,6 +314,7 @@ export function useLibrary() {
     renameLibrary,
     addFolder,
     addItem,
+    addJoinedItem,
     removeNode,
     moveNode,
     renameNode,

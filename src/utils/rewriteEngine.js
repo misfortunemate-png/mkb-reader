@@ -162,7 +162,12 @@ export function applyRewrite(originalMd, rules, chapterId = 'index', options = {
   out = applyLineEdits(out, rules.lineEdits, chapterId);
   out = applyReplacements(out, rules.replacements, chapterId, highlight);
   out = applyHiddenRanges(out, rules.hiddenRanges, chapterId);
-  out = applyInsertedAssets(out, rules.insertedAssets, chapterId, assetUrlOf);
+  // §29: importedAssets（ライブラリ切り出し画像）を insertedAssets と同じ方式で適用する
+  const allInserted = [
+    ...(rules.insertedAssets || []),
+    ...(rules.importedAssets || []),
+  ];
+  out = applyInsertedAssets(out, allInserted, chapterId, assetUrlOf);
   return out;
 }
 
@@ -176,5 +181,6 @@ export function isEmptyRules(rules) {
   if ((rules.replacements || []).some((r) => r?.enabled && r.pattern)) return false;
   if ((rules.hiddenRanges || []).some((r) => r?.enabled)) return false;
   if ((rules.insertedAssets || []).some((a) => a?.enabled !== false)) return false;
+  if ((rules.importedAssets || []).some((a) => a?.enabled !== false)) return false;
   return true;
 }

@@ -161,5 +161,14 @@ export function useMkbLoader() {
   // 何を: 後方互換エイリアス（旧 API 名 mkb は data を返す）
   const mkb = content?.type === 'mkb' ? content.data : null;
 
-  return { content, mkb, error, loading, loadFile, loadFromUrl };
+  // §29.1: 結合ノード用 — 外部で構築済みの MkbData を直接セットする
+  // なぜ: 複数 BookEntry を結合した合成コンテンツはファイル経由ではなくメモリ上で構築するため
+  const loadJoined = useCallback((mkbData) => {
+    const result = { type: 'mkb', data: mkbData };
+    revokeContent(prevRef.current);
+    prevRef.current = result;
+    setContent(result);
+  }, []);
+
+  return { content, mkb, error, loading, loadFile, loadFromUrl, loadJoined };
 }

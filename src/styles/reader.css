@@ -2055,3 +2055,85 @@ button {
   gap: 0.75rem;
   box-shadow: 0 4px 24px rgba(0,0,0,0.2);
 }
+
+/* ─────────────────────────────────────────────────────────
+   §29 LibraryEditor / LibraryExport UI
+   ───────────────────────────────────────────────────────── */
+
+/* 結合ダイアログ — lib-picker を流用してオーバーレイ表示 */
+.lib-picker-desc {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  margin: 0.5rem 0 0.25rem;
+}
+.join-item-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.join-item {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.join-item:last-child {
+  border-bottom: none;
+}
+.lib-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+.lib-name-row .rw-label {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+.join-dialog-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+/* インポート先選択ダイアログ — パンくず付き */
+.import-breadcrumb {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--color-code-bg);
+  border-radius: 6px;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+
+/* §29.1 ノードチェックボックス（編集モードのマルチセレクト） */
+.lib-node-check {
+  width: 1.1rem;
+  height: 1.1rem;
+  cursor: pointer;
+  margin-right: 0.25rem;
+  flex-shrink: 0;
+}
+.lib-node-btn.selected {
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  outline: 2px solid var(--color-accent);
+}
+
+/* 結合ボタン・MKB出力ボタン */
+.lib-tool-btn.join {
+  background: color-mix(in srgb, var(--color-accent) 20%, transparent);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+.lib-tool-btn.export {
+  background: color-mix(in srgb, #2196f3 15%, transparent);
+  color: #1565c0;
+}
+[data-theme="dark"] .lib-tool-btn.export {
+  color: #90caf9;
+}

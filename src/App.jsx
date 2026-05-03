@@ -10,6 +10,8 @@ import ChapterNav from './components/ChapterNav.jsx';
 import Paginator from './components/Paginator.jsx';
 import Bookshelf from './components/Bookshelf.jsx';
 import LibraryView from './components/LibraryView.jsx';
+import LibraryExport from './components/LibraryExport.jsx';
+import { JoinDialog, ImportTargetDialog } from './components/LibraryEditor.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import HtmlRenderer from './components/HtmlRenderer.jsx';
 import JsonRenderer from './components/JsonRenderer.jsx';
@@ -26,6 +28,9 @@ import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
 import { useLibrary } from './hooks/useLibrary.js';
 import { useSettings } from './hooks/useSettings.js';
+import JSZip from 'jszip';
+import { parseMkbZip, buildSingleMdMkb, buildTxtMkb } from './utils/mkbParser.js';
+import { applyRewrite } from './utils/rewriteEngine.js';
 
 // 何を: 同梱サンプル一覧
 // なぜ: ウェルカム画面から各形式（mkb / html / json / cbz / chat-import）をワンタップで開く
@@ -60,7 +65,7 @@ export default function App() {
   // null = 通常の開き方。libraryEdits がある場合は rewrite.rules の上に重ねる
   const [libraryContext, setLibraryContext] = useState(null);
 
-  const { content, mkb: rawMkb, error, loading, loadFile, loadFromUrl } = useMkbLoader();
+  const { content, mkb: rawMkb, error, loading, loadFile, loadFromUrl, loadJoined } = useMkbLoader();
   // §30: vertical content も mkbData を持つため、isMkb/isVertical 両方で mkb を解決
   const isVertical = content?.type === 'vertical';
   const isMkbType = content?.type === 'mkb';
@@ -90,9 +95,11 @@ export default function App() {
     renameLibrary,
     addFolder,
     addItem,
+    addJoinedItem,   // §29.1
     removeNode,
     moveNode,
     renameNode,
+    updateNodeEdits, // §29.2
     findReferencingLibraries,
     removeNodesByBookId,
   } = useLibrary();
@@ -119,6 +126,14 @@ export default function App() {
 
   // §21 コンテキストメニュー
   const [contextMenuEvent, setContextMenuEvent] = useState(null);
+
+  // §29 ダイアログ状態
+  // joinDialog: { libraryId, parentId, selectedNodes } | null
+  const [joinDialog, setJoinDialog] = useState(null);
+  // importTarget: { src, mimeType, altText } | null — ライブラリ切り出し先選択中
+  const [importTarget, setImportTarget] = useState(null);
+  // libraryExport: { libraryId, targetNodeId } | null
+  const [libraryExportState, setLibraryExportState] = useState(null);
 
   // 差し込み画像タップ → サイズ変更/削除アクションシート
   const [assetMenu, setAssetMenu] = useState(null); // null | { assetId }
@@ -310,6 +325,111 @@ export default function App() {
     }
   }
 
+  // ───── §29.1 結合ノードを開く ─────
+  // なぜ: 複数 BookEntry を1つの MkbData に結合して loadJoined でビューアにセット
+  async function handleOpenJoinedItem(node) {
+    const combinedChapters = [];
+    const combinedAssets = new Map();
+    for (const bookId of (node.sourceBookIds || [])) {
+      const entry = books.find((b) => b.id === bookId);
+      if (!entry) continue;
+      const ls = await getLocalSettings(entry.id);
+      const rules = ls?.rewrite || null;
+      let mkbData;
+      try {
+        const ft = entry.fileType || 'mkb';
+        if (ft === 'mkb' || ft === 'zip') {
+          const zip = await JSZip.loadAsync(entry.fileData);
+          mkbData = await parseMkbZip(zip, entry.title || 'book');
+        } else if (ft === 'md') {
+          mkbData = buildSingleMdMkb(new TextDecoder().decode(entry.fileData), entry.title || 'book.md');
+        } else if (ft === 'txt') {
+          mkbData = buildTxtMkb(new TextDecoder().decode(entry.fileData), entry.title || 'book.txt');
+        } else {
+          continue;
+        }
+      } catch (e) {
+        console.error('handleOpenJoinedItem: parse error', e);
+        continue;
+      }
+      // 層A rewrite を適用（insertedAssets は path のまま — Blob URL は後段で行わない）
+      for (const c of mkbData.chapters) {
+        const prefixedId = `${bookId}-${c.id}`;
+        let content = c.content;
+        if (rules) {
+          content = applyRewrite(content, rules, c.id, { highlight: true, assetUrlOf: (a) => a.path || '' });
+        }
+        combinedChapters.push({ ...c, id: prefixedId, content });
+      }
+      for (const [path, url] of mkbData.assets) {
+        combinedAssets.set(path, url);
+      }
+    }
+    if (combinedChapters.length === 0) {
+      showToast('開けるコンテンツがありません');
+      return;
+    }
+    setLibraryContext(node.edits ? { edits: node.edits } : null);
+    setActiveEntry(null); // joined node には単一 BookEntry なし
+    setLastFile(null);
+    loadJoined({ metadata: { title: node.name || '結合' }, chapters: combinedChapters, assets: combinedAssets });
+  }
+
+  // ───── §29.1 結合ダイアログを開く（LibraryView から呼ばれる） ─────
+  function handleJoinItems(libraryId, parentId, selectedNodes) {
+    setJoinDialog({ libraryId, parentId, selectedNodes });
+  }
+
+  // ───── §29.2 ContextMenu からの画像切り出し ─────
+  // なぜ: 長押しした画像の src/alt を受け取り、ライブラリ選択ダイアログを表示
+  function handleImportImageFromContext({ src, mimeType, altText }) {
+    setImportTarget({ src, mimeType: mimeType || '', altText: altText || '' });
+  }
+
+  // ───── §29.2 切り出し先が決定したら importedAsset を保存 ─────
+  async function handleImportTargetSelect({ libraryId, nodeId }) {
+    if (!importTarget) return;
+    setImportTarget(null);
+    try {
+      const { src, mimeType, altText } = importTarget;
+      // src が blob: URL なら ArrayBuffer に変換
+      const res = await fetch(src);
+      const ab = await res.arrayBuffer();
+      const detectedMime = mimeType || res.headers.get('content-type') || 'image/jpeg';
+      const ext = detectedMime.split('/')[1] || 'jpg';
+      const assetId = crypto.randomUUID();
+      const assetPath = `assets/imported-${assetId}.${ext}`;
+
+      // 切り出し先ノードの既存 edits に importedAssets を追加
+      const lib = libraries.find((l) => l.id === libraryId);
+      const node = lib?.nodes[nodeId];
+      const existingEdits = node?.edits || {};
+      const newAsset = {
+        id: assetId,
+        path: assetPath,
+        data: ab,
+        mimeType: detectedMime,
+        altText,
+        insertAfter: { lineNumber: 0 }, // 末尾に挿入
+        displaySize: 'block',
+        enabled: true,
+      };
+      await updateNodeEdits(libraryId, nodeId, {
+        ...existingEdits,
+        importedAssets: [...(existingEdits.importedAssets || []), newAsset],
+      });
+      showToast(`「${node?.name || nodeId}」に画像を切り出しました`);
+    } catch (e) {
+      console.error('handleImportTargetSelect:', e);
+      showToast('画像の切り出しに失敗しました');
+    }
+  }
+
+  // ───── §29.3 ライブラリ MKB エクスポート ─────
+  function handleExportLibraryMkb(libraryId, targetNodeId) {
+    setLibraryExportState({ libraryId, targetNodeId });
+  }
+
   // ───── 共通ローダ（lastFile を保持して save 経路に渡す） ─────
   // §30: opts を受け取り { file, opts } として保持することで vertical フラグを保存に引き継ぐ
   async function loadFileAndRemember(file, opts = {}) {
@@ -456,6 +576,7 @@ export default function App() {
               libraries={libraries}
               books={books}
               onOpenLibraryItem={handleOpenLibraryItem}
+              onOpenJoinedItem={handleOpenJoinedItem}
               onCreateLibrary={createLibrary}
               onDeleteLibrary={deleteLibrary}
               onRenameLibrary={renameLibrary}
@@ -464,9 +585,43 @@ export default function App() {
               onRemoveNode={removeNode}
               onMoveNode={moveNode}
               onRenameNode={renameNode}
+              onJoinItems={handleJoinItems}
+              onExportMkb={handleExportLibraryMkb}
             />
           </div>
         )}
+        {/* §29.1 結合ダイアログ */}
+        {joinDialog && (
+          <JoinDialog
+            selectedNodes={joinDialog.selectedNodes}
+            libraryId={joinDialog.libraryId}
+            parentId={joinDialog.parentId}
+            addJoinedItem={addJoinedItem}
+            onDone={() => setJoinDialog(null)}
+            onCancel={() => setJoinDialog(null)}
+          />
+        )}
+        {/* §29.2 切り出し先選択ダイアログ */}
+        {importTarget && (
+          <ImportTargetDialog
+            libraries={libraries}
+            onSelect={handleImportTargetSelect}
+            onCancel={() => setImportTarget(null)}
+          />
+        )}
+        {/* §29.3 ライブラリ MKB エクスポートダイアログ */}
+        {libraryExportState && (() => {
+          const lib = libraries.find((l) => l.id === libraryExportState.libraryId);
+          return lib ? (
+            <LibraryExport
+              library={lib}
+              targetNodeId={libraryExportState.targetNodeId}
+              books={books}
+              getLocalSettings={getLocalSettings}
+              onClose={() => setLibraryExportState(null)}
+            />
+          ) : null;
+        })()}
         <Toast message={toastMsg} onDismiss={() => setToastMsg(null)} />
         {/* §30: 縦書き確認ダイアログ（Bookshelf の＋開くからも表示される） */}
         {verticalPending && (
@@ -738,6 +893,7 @@ export default function App() {
           onHideLine={handleHideLine}
           onEditLine={handleEditLine}
           onInsertImage={handleInsertImageFromContext}
+          onImportImage={libraries.length > 0 ? handleImportImageFromContext : undefined}
           onUndo={rewrite.undo}
           canUndo={rewrite.canUndo}
           onOpenRewrite={() => setRewriteOpen(true)}
