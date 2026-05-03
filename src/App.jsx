@@ -57,7 +57,11 @@ export default function App() {
   // null = 通常の開き方。libraryEdits がある場合は rewrite.rules の上に重ねる
   const [libraryContext, setLibraryContext] = useState(null);
 
-  const { content, mkb, error, loading, loadFile, loadFromUrl } = useMkbLoader();
+  const { content, mkb: rawMkb, error, loading, loadFile, loadFromUrl } = useMkbLoader();
+  // §30: vertical content も mkbData を持つため、isMkb/isVertical 両方で mkb を解決
+  const isVertical = content?.type === 'vertical';
+  const isMkbType = content?.type === 'mkb';
+  const mkb = isVertical ? content?.data : rawMkb;
   const {
     books,
     loading: shelfLoading,
@@ -215,7 +219,8 @@ export default function App() {
       setCurrentId(null);
       return;
     }
-    if (content.type === 'mkb' && content.data?.chapters?.length) {
+    // §30: vertical も mkbData を持つので同じパスで処理
+    if ((content.type === 'mkb' || content.type === 'vertical') && content.data?.chapters?.length) {
       const chapters = content.data.chapters;
       const lp = pendingLastPositionRef.current;
       pendingLastPositionRef.current = null; // 使い捨て
@@ -303,9 +308,10 @@ export default function App() {
   }
 
   // ───── 共通ローダ（lastFile を保持して save 経路に渡す） ─────
-  async function loadFileAndRemember(file) {
-    setLastFile(file);
-    return loadFile(file);
+  // §30: opts を受け取り { file, opts } として保持することで vertical フラグを保存に引き継ぐ
+  async function loadFileAndRemember(file, opts = {}) {
+    setLastFile({ file, opts });
+    return loadFile(file, opts);
   }
 
   // ───── §28 ライブラリ → ビューア ─────
@@ -336,11 +342,13 @@ export default function App() {
     const freshLs = await getLocalSettings(entry.id);
     pendingLastPositionRef.current = freshLs?.lastPosition || null;
     await updateLastOpened(entry.id);
-    await loadFile(bookEntryToFile(entry));
+    // §30: vertical fileType の本は opts.vertical=true で loadFile に渡す
+    const opts = entry.fileType === 'vertical' ? { vertical: true } : {};
+    await loadFile(bookEntryToFile(entry), opts);
   }
-  async function handlePickFile(file) {
+  async function handlePickFile(file, opts = {}) {
     setActiveEntry(null);
-    await loadFileAndRemember(file);
+    await loadFileAndRemember(file, opts);
   }
   // §18 取込フロー用: ChatImporter に渡す自動ロード URL
   const [chatImportUrl, setChatImportUrl] = useState(null);
@@ -377,8 +385,10 @@ export default function App() {
       alert('保存対象のファイルが見つかりません（本棚から開いた項目は既に保存済みです）');
       return;
     }
+    // §30: lastFile は { file, opts } 形式。opts.vertical を fileToBookEntry に渡す
+    const { file: lastFileObj, opts: lastFileOpts } = lastFile;
     const charCount = mkb.chapters.reduce((sum, c) => sum + (c.content?.length || 0), 0);
-    const entry = await fileToBookEntry(lastFile, { ...mkb.metadata, charCount });
+    const entry = await fileToBookEntry(lastFileObj, { ...mkb.metadata, charCount }, lastFileOpts);
     const dup = await findByTitle(entry.title);
     if (dup) {
       if (!confirm(`「${entry.title}」は既に本棚にあります。上書きしますか？`)) return;
@@ -474,11 +484,12 @@ export default function App() {
     );
   }
 
-  const isMkb = content.type === 'mkb';
-  const showNav = isMkb && mkb && mkb.chapters.length > 1;
+  // §30: isMkbType/isVertical は useMkbLoader の後に宣言済み（ここでは aliases として使用）
+  const isMkb = isMkbType;
+  const showNav = (isMkb || isVertical) && mkb && mkb.chapters.length > 1;
   const isSaved = !!activeEntry;
-  // タイトル: mkb なら metadata.title、その他はファイル名
-  const headerTitle = isMkb
+  // タイトル: mkb/vertical なら metadata.title、その他はファイル名
+  const headerTitle = (isMkb || isVertical)
     ? mkb?.metadata?.title
     : (content.name || (content.type === 'html' ? 'HTML' : content.type === 'json' ? 'JSON' : ''));
 
@@ -536,8 +547,8 @@ export default function App() {
         >
           <BookmarkIcon filled={isSaved} />
         </button>
-        {/* §14 読み替え（mkb のみ） */}
-        {isMkb && activeEntry && (
+        {/* §14 読み替え（mkb/vertical）— §30: 縦書きにも rewrite を適用 */}
+        {(isMkb || isVertical) && activeEntry && (
           <button
             type="button"
             className="icon-btn"
@@ -548,8 +559,8 @@ export default function App() {
             <PenIcon />
           </button>
         )}
-        {/* §16 エクスポート（mkb で activeEntry あり） */}
-        {isMkb && activeEntry && (
+        {/* §16 エクスポート（mkb/vertical で activeEntry あり） */}
+        {(isMkb || isVertical) && activeEntry && (
           <button
             type="button"
             className="icon-btn"
@@ -573,7 +584,7 @@ export default function App() {
 
       {/* 何を: コンテンツ型に応じてレンダラーを切替
           なぜ: 仕様書 §10 — HTML/JSON はスクロール固定の専用ビュー */}
-      {isMkb && currentChapter && (
+      {(isMkb || isVertical) && currentChapter && (
         <Paginator
           chapter={currentChapter}
           chapters={mkb.chapters}
@@ -593,6 +604,7 @@ export default function App() {
           onScrollRatioChange={handleScrollRatioChange}
           onContextMenu={activeEntry ? setContextMenuEvent : undefined}
           onInsertedAssetTap={activeEntry ? handleAssetTap : undefined}
+          vertical={isVertical}
         />
       )}
       {content.type === 'html' && (
@@ -612,7 +624,7 @@ export default function App() {
         </div>
       )}
       {/* §14 読み替えパネル */}
-      {isMkb && (
+      {(isMkb || isVertical) && (
         <RewritePanel
           open={rewriteOpen}
           onClose={() => setRewriteOpen(false)}
@@ -631,7 +643,7 @@ export default function App() {
         />
       )}
       {/* §15 画像差し込みダイアログ */}
-      {isMkb && (
+      {(isMkb || isVertical) && (
         <ImageInserter
           open={imageInserterOpen}
           onClose={() => setImageInserterOpen(false)}
@@ -640,7 +652,7 @@ export default function App() {
         />
       )}
       {/* 差し込み画像アクションシート（サイズ変更・削除） */}
-      {isMkb && assetMenu && (() => {
+      {(isMkb || isVertical) && assetMenu && (() => {
         const asset = rewrite.rules.insertedAssets?.find((a) => a.id === assetMenu.assetId);
         return (
           <div className="asset-action-sheet" onClick={() => setAssetMenu(null)}>
@@ -669,8 +681,8 @@ export default function App() {
           </div>
         );
       })()}
-      {/* §21 コンテキストメニュー（mkb + 本棚保存済みの場合のみ） */}
-      {isMkb && activeEntry && (
+      {/* §21 コンテキストメニュー（mkb/vertical + 本棚保存済みの場合のみ） */}
+      {(isMkb || isVertical) && activeEntry && (
         <ContextMenu
           event={contextMenuEvent}
           onClose={() => setContextMenuEvent(null)}
@@ -685,7 +697,7 @@ export default function App() {
         />
       )}
       {/* §16 エクスポート */}
-      {isMkb && activeEntry && (
+      {(isMkb || isVertical) && activeEntry && (
         <ExportDialog
           open={exportOpen}
           onClose={() => setExportOpen(false)}
@@ -710,6 +722,7 @@ export default function App() {
         resetLocalKey={resetLocalKey}
         canEditLocal={!!activeEntry?.id}
         onTapZoneChange={handleTapZoneChange}
+        fileType={isVertical ? 'vertical' : (isMkb ? 'mkb' : content?.type)}
         bookCount={books?.length || 0}
         onDeleteAllBooks={async () => {
           if (!books?.length) return;

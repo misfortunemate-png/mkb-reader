@@ -27,8 +27,11 @@ export default function Paginator({
   // §21 コンテキストメニュー（長押し検出 → 呼び出し元へ通知）
   onContextMenu,
   onInsertedAssetTap,
+  // §30 縦書きモード（スクロール固定、writing-mode: vertical-rl）
+  vertical = false,
 }) {
-  const enabled = mode === 'page';
+  // §30: vertical モード時はページネーションを無効にしてスクロール固定
+  const enabled = !vertical && mode === 'page';
   const frameRef = useRef(null);
   const trackRef = useRef(null);
 
@@ -259,7 +262,7 @@ export default function Paginator({
     <>
       <div
         ref={frameRef}
-        className={`paginator-frame ${enabled ? '' : 'scroll-mode'}`}
+        className={`paginator-frame ${enabled ? '' : 'scroll-mode'}${vertical ? ' vertical-mode' : ''}`}
         onClick={handleFrameClick}
       >
         <div ref={trackRef} className="paginator-track">

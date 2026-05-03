@@ -1973,3 +1973,54 @@ button {
 .lib-picker-item:hover, .lib-picker-item:active {
   background: var(--color-code-bg);
 }
+
+/* ─────────────────────────────────────────────────────────
+   §30 縦書きモード（writing-mode: vertical-rl）
+   ───────────────────────────────────────────────────────── */
+
+/* 何を: 縦書きフレーム — 横スクロール有効、縦スクロール無効
+   なぜ: §30 — writing-mode: vertical-rl により右から左へ縦組みが流れる */
+.vertical-mode {
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  height: calc(100vh - var(--header-h, 48px));
+}
+.vertical-mode .paginator-track {
+  writing-mode: vertical-rl;
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 100%;
+  /* 縦書きは高さで制御、幅は内容に合わせて自動拡張 */
+  width: max-content;
+  min-width: 100%;
+  padding: var(--content-padding, 1.5rem);
+}
+/* 何を: 縦書き内の画像サイズ制限
+   なぜ: §30 — 縦書きフロー内で画像が縦方向（視覚上の横）に突き抜けないよう制限 */
+.vertical-mode .paginator-track img {
+  max-height: 80vh;
+  width: auto;
+}
+
+/* 縦書きチェックボックス（FileLoader） */
+.vertical-check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1rem 0;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--color-text);
+}
+.vertical-check input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+}
+.vertical-confirm-btns {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}

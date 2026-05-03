@@ -1,20 +1,68 @@
 // 何を: ウェルカム画面とファイル選択UI
 // なぜ: 仕様書 §1 のファイル選択ボタン。mkb / md / txt を accept
+//       §30: md/txt/markdown 選択時に縦書き確認ダイアログを表示
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
+
+// 何を: 縦書き確認ダイアログを表示する拡張子
+// なぜ: §30 D-005 — インポート時に縦書き/横書きを確定する。他の形式には不要
+const VERTICAL_EXT_RE = /\.(md|markdown|txt)$/i;
 
 export default function FileLoader({ onSelect, error, loading, onLoadSample }) {
   const inputRef = useRef(null);
+  // 何を: md/txt 選択時の一時保留ファイル（縦書き確認待ち）
+  // なぜ: §30 — 選択直後に読み込まず、チェックボックスで縦書きかどうかを確認してから loadFile に渡す
+  const [pendingFile, setPendingFile] = useState(null);
+  const [isVertical, setIsVertical] = useState(false);
 
   function handleChange(e) {
-    // 何を: 複数選択時は配列で渡す（仕様書 §11 — 画像複数選択）
     const files = e.target.files;
     if (files && files.length > 1) {
       onSelect(Array.from(files));
     } else if (files && files[0]) {
-      onSelect(files[0]);
+      const file = files[0];
+      if (VERTICAL_EXT_RE.test(file.name || '')) {
+        // md/txt/markdown → 縦書き確認ダイアログへ
+        setPendingFile(file);
+        setIsVertical(false);
+      } else {
+        onSelect(file);
+      }
     }
     e.target.value = '';
+  }
+
+  function handleConfirm() {
+    if (!pendingFile) return;
+    onSelect(pendingFile, { vertical: isVertical });
+    setPendingFile(null);
+  }
+
+  // 縦書き確認ダイアログ表示中
+  if (pendingFile) {
+    return (
+      <div className="welcome">
+        <h1>mkb-reader</h1>
+        <p className="hint">{pendingFile.name}</p>
+        <label className="vertical-check">
+          <input
+            type="checkbox"
+            checked={isVertical}
+            onChange={(e) => setIsVertical(e.target.checked)}
+          />
+          縦書きとして読み込む
+        </label>
+        <div className="vertical-confirm-btns">
+          <button type="button" className="file-btn" onClick={handleConfirm} disabled={loading}>
+            {loading ? '読込中…' : '読み込む'}
+          </button>
+          <button type="button" className="file-btn" onClick={() => setPendingFile(null)}>
+            キャンセル
+          </button>
+        </div>
+        {error && <p className="error">エラー: {error}</p>}
+      </div>
+    );
   }
 
   return (

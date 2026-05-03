@@ -29,7 +29,8 @@ const IMG_MIME = {
 // なぜ: ViewerContent 切替時のメモリリーク防止
 function revokeContent(c) {
   if (!c) return;
-  if (c.type === 'mkb') revokeMkbAssets(c.data);
+  // §30: vertical も mkbData を持つので同じ解放処理
+  if (c.type === 'mkb' || c.type === 'vertical') revokeMkbAssets(c.data);
   if (c.type === 'images' && Array.isArray(c.images)) {
     for (const img of c.images) {
       try { if (img.url) URL.revokeObjectURL(img.url); } catch { /* ignore */ }
@@ -47,7 +48,8 @@ export function useMkbLoader() {
 
   // 何を: File または File[] を受け取る
   // なぜ: 仕様書 §11 — 画像複数選択（input multiple）対応
-  const loadFile = useCallback(async (fileOrFiles) => {
+  //       §30: opts.vertical=true のとき md/txt を縦書き(type='vertical')として読む
+  const loadFile = useCallback(async (fileOrFiles, opts = {}) => {
     if (!fileOrFiles) return;
     // 配列が来た場合: 全部画像なら ImageViewer、それ以外は先頭ファイルだけ採用
     if (Array.isArray(fileOrFiles) || fileOrFiles instanceof FileList) {
@@ -76,7 +78,7 @@ export function useMkbLoader() {
         return;
       }
       // 複数ファイルだが画像じゃない or 1枚だけ → 先頭ファイルだけ通常処理へ
-      return loadFile(list[0]);
+      return loadFile(list[0], opts);
     }
     const file = fileOrFiles;
     setError(null);
@@ -110,10 +112,13 @@ export function useMkbLoader() {
         result = { type: 'images', images: [{ name, url }], name };
       } else if (lower.endsWith('.md') || lower.endsWith('.markdown')) {
         const text = await file.text();
-        result = { type: 'mkb', data: buildSingleMdMkb(text, name) };
+        // §30: vertical フラグが立っている場合は type='vertical' で返す（パーサーは共通）
+        const data = buildSingleMdMkb(text, name);
+        result = opts?.vertical ? { type: 'vertical', data } : { type: 'mkb', data };
       } else if (lower.endsWith('.txt')) {
         const text = await file.text();
-        result = { type: 'mkb', data: buildTxtMkb(text, name) };
+        const data = buildTxtMkb(text, name);
+        result = opts?.vertical ? { type: 'vertical', data } : { type: 'mkb', data };
       } else if (lower.endsWith('.html') || lower.endsWith('.htm')) {
         // §10: HTML はサンドボックス表示
         const text = await file.text();

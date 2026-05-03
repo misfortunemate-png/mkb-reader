@@ -277,6 +277,8 @@ const TYPE_BY_EXT = {
 const MIME_BY_TYPE = {
   mkb: 'application/zip', zip: 'application/zip', cbz: 'application/zip',
   md: 'text/markdown', txt: 'text/plain',
+  // §30: vertical は md と同じ MIME（パーサー共通）
+  vertical: 'text/markdown',
   html: 'text/html', json: 'application/json',
   jpg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
 };
@@ -284,10 +286,13 @@ const MIME_BY_TYPE = {
 // 何を: File → BookEntry へ変換
 // なぜ: 仕様書 §8 — 開いたファイルを ArrayBuffer + メタデータで保存する。
 //       Phase 3a §11 で対応拡張子が増えたため fileType の判定を拡張
-export async function fileToBookEntry(file, mkbMetadata) {
+//       §30: opts.vertical=true のとき fileType='vertical' で保存する
+export async function fileToBookEntry(file, mkbMetadata, opts = {}) {
   const name = file.name || 'untitled';
   const ext = (name.split('.').pop() || '').toLowerCase();
-  const fileType = TYPE_BY_EXT[ext] || 'md';
+  const rawType = TYPE_BY_EXT[ext] || 'md';
+  // §30: 縦書きフラグが立っている場合は 'vertical' で上書き（拡張子は変えない）
+  const fileType = opts?.vertical ? 'vertical' : rawType;
   const fileData = await file.arrayBuffer();
   const baseTitle = name.replace(/\.[^.]+$/, '');
   return {
@@ -304,10 +309,11 @@ export async function fileToBookEntry(file, mkbMetadata) {
 }
 
 // BookEntry → File（ビューアに渡すため）
+// §30: vertical は .md として File 化する（loadFile の md/markdown 分岐でパースされる）
 export function bookEntryToFile(entry) {
-  const ext = entry.fileType || 'md';
+  const rawExt = entry.fileType === 'vertical' ? 'md' : (entry.fileType || 'md');
   const safeName = (entry.title || 'untitled').replace(/[\\/:*?"<>|]/g, '_');
-  const name = `${safeName}.${ext === 'jpg' ? 'jpg' : ext}`;
-  const mime = MIME_BY_TYPE[ext] || 'application/octet-stream';
+  const name = `${safeName}.${rawExt === 'jpg' ? 'jpg' : rawExt}`;
+  const mime = MIME_BY_TYPE[entry.fileType] || MIME_BY_TYPE[rawExt] || 'application/octet-stream';
   return new File([entry.fileData], name, { type: mime });
 }

@@ -69,7 +69,11 @@ export default function SettingsPanel({
   onDeleteAllBooks,
   // 設定を初期値に戻す（検証用）
   onResetGlobalSettings,
+  // §30 縦書き時は一部の設定を非表示にする
+  fileType,
 }) {
+  // §30: 縦書きモードではページネーション・スワイプ・タップゾーン設定を非表示
+  const isVertical = fileType === 'vertical';
   useEffect(() => {
     if (!open) return;
     const prev = document.body.style.overflow;
@@ -229,7 +233,8 @@ export default function SettingsPanel({
           </div>
         </Section>
 
-        <Section title="操作" overridden={isOverridden('swipeDirection')} onReset={onResetKey('swipeDirection')}>
+        {/* §30: 縦書きモード時はスワイプ方向非表示（スクロール固定のため） */}
+        {!isVertical && <Section title="操作" overridden={isOverridden('swipeDirection')} onReset={onResetKey('swipeDirection')}>
           <div className="toggle">
             <button
               type="button"
@@ -242,10 +247,11 @@ export default function SettingsPanel({
               onClick={() => update({ swipeDirection: 'vertical' })}
             >上下スワイプ</button>
           </div>
-        </Section>
+        </Section>}
 
         {/* §24 タップゾーン（ページモード時のみ意味があるため「操作」直後に配置） */}
-        <Section title="タップゾーン" overridden={isOverridden('tapZone')} onReset={onResetKey('tapZone')}>
+        {/* §30: 縦書きモード時はタップゾーン非表示（スクロール固定でページ送り不要） */}
+        {!isVertical && <Section title="タップゾーン" overridden={isOverridden('tapZone')} onReset={onResetKey('tapZone')}>
           <div className="settings-row">
             {[
               { key: 'bottom-corners', label: '下部コーナー' },
@@ -298,7 +304,7 @@ export default function SettingsPanel({
               </div>
             </>
           )}
-        </Section>
+        </Section>}
 
         {/* §23 ヘッダー高さ */}
         <Section title="ヘッダー" overridden={isOverridden('headerHeight')} onReset={onResetKey('headerHeight')}>
@@ -356,7 +362,8 @@ export default function SettingsPanel({
           </div>
         </Section>
 
-        <Section title="表示モード" overridden={isOverridden('mode')} onReset={onResetKey('mode')}>
+        {/* §30: 縦書きモード時は表示モード切り替え非表示（スクロール固定のため） */}
+        {!isVertical && <Section title="表示モード" overridden={isOverridden('mode')} onReset={onResetKey('mode')}>
           <div className="toggle">
             <button
               type="button"
@@ -369,7 +376,7 @@ export default function SettingsPanel({
               onClick={() => update({ mode: 'scroll' })}
             >スクロール</button>
           </div>
-        </Section>
+        </Section>}
 
         {/* データ管理 — 検証用。設計思想に反する操作（破壊的）なので最下部に配置 */}
         {(onDeleteAllBooks || onResetGlobalSettings) && (
