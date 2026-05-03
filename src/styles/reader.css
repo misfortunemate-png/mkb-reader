@@ -1978,27 +1978,30 @@ button {
    §30 縦書きモード（writing-mode: vertical-rl）
    ───────────────────────────────────────────────────────── */
 
-/* 何を: 縦書きフレーム — 横スクロール有効、縦スクロール無効
-   なぜ: §30 — writing-mode: vertical-rl により右から左へ縦組みが流れる */
-.vertical-mode {
+/* 何を: 縦書きフレーム — .scroll-mode との競合を複合セレクタで解決
+   なぜ: §30 — .paginator-frame.scroll-mode の詳細度(0,2,0)に勝つため
+         .paginator-frame.scroll-mode.vertical-mode(0,3,0) で上書きする。
+         scroll-mode は overflow-x:hidden / touch-action:pan-y / height:auto を持ち、
+         これらすべてが縦書きレイアウトと競合する */
+.paginator-frame.scroll-mode.vertical-mode {
   overflow-x: auto;
   overflow-y: hidden;
-  flex: 1;
-  height: calc(100vh - var(--header-h, 48px));
+  /* 横スクロールを許可（縦書きの読み進め方向 = 右→左） */
+  touch-action: pan-x;
 }
-.vertical-mode .paginator-track {
+.paginator-frame.scroll-mode.vertical-mode .paginator-track {
   writing-mode: vertical-rl;
-  overflow-x: auto;
-  overflow-y: hidden;
+  /* scroll-mode の height:auto を上書き。フレーム高さに合わせる */
   height: 100%;
-  /* 縦書きは高さで制御、幅は内容に合わせて自動拡張 */
   width: max-content;
   min-width: 100%;
   padding: var(--content-padding, 1.5rem);
+  column-width: auto !important;
+  columns: auto !important;
 }
 /* 何を: 縦書き内の画像サイズ制限
-   なぜ: §30 — 縦書きフロー内で画像が縦方向（視覚上の横）に突き抜けないよう制限 */
-.vertical-mode .paginator-track img {
+   なぜ: §30 — 縦書きフロー内で画像が横方向に突き抜けないよう制限 */
+.paginator-frame.scroll-mode.vertical-mode .paginator-track img {
   max-height: 80vh;
   width: auto;
 }
