@@ -817,7 +817,6 @@ export default function App() {
           initialScrollRatio={initialScrollRatio}
           onPageChange={handlePageChange}
           onScrollRatioChange={handleScrollRatioChange}
-          {/* §29.2: 本棚未保存でも画像切り出しのために長押しメニューを有効化 */}
           onContextMenu={setContextMenuEvent}
           onInsertedAssetTap={activeEntry ? handleAssetTap : undefined}
           vertical={isVertical}
