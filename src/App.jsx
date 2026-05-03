@@ -333,9 +333,14 @@ export default function App() {
   async function handleOpenJoinedItem(node) {
     const combinedChapters = [];
     const combinedAssets = new Map();
+    let loadedBooks = 0;
     for (const bookId of (node.sourceBookIds || [])) {
       const entry = books.find((b) => b.id === bookId);
-      if (!entry) continue;
+      if (!entry) {
+        console.warn('handleOpenJoinedItem: book not found in shelf', bookId);
+        showToast(`本棚に見つからないファイルがあります（ID: ${bookId.slice(0, 8)}…）`);
+        continue;
+      }
       const ls = await getLocalSettings(entry.id);
       const rules = ls?.rewrite || null;
       let mkbData;
@@ -353,20 +358,22 @@ export default function App() {
         }
       } catch (e) {
         console.error('handleOpenJoinedItem: parse error', e);
+        showToast(`「${entry.title}」の読み込みに失敗しました`);
         continue;
       }
       // 層A rewrite を適用（insertedAssets は path のまま — Blob URL は後段で行わない）
       for (const c of mkbData.chapters) {
         const prefixedId = `${bookId}-${c.id}`;
-        let content = c.content;
+        let chapContent = c.content;
         if (rules) {
-          content = applyRewrite(content, rules, c.id, { highlight: true, assetUrlOf: (a) => a.path || '' });
+          chapContent = applyRewrite(chapContent, rules, c.id, { highlight: true, assetUrlOf: (a) => a.path || '' });
         }
-        combinedChapters.push({ ...c, id: prefixedId, content });
+        combinedChapters.push({ ...c, id: prefixedId, content: chapContent });
       }
-      for (const [path, url] of mkbData.assets) {
-        combinedAssets.set(path, url);
+      for (const [assetPath, url] of mkbData.assets) {
+        combinedAssets.set(assetPath, url);
       }
+      loadedBooks++;
     }
     if (combinedChapters.length === 0) {
       showToast('開けるコンテンツがありません');
@@ -375,7 +382,10 @@ export default function App() {
     setLibraryContext(node.edits ? { edits: node.edits } : null);
     setActiveEntry(null); // joined node には単一 BookEntry なし
     setLastFile(null);
+    // §29.1: 複数チャプターを持つ結合コンテンツ → チャプターナビを自動表示
+    if (combinedChapters.length > 1) setDrawerOpen(true);
     loadJoined({ metadata: { title: node.name || '結合' }, chapters: combinedChapters, assets: combinedAssets });
+    showToast(`${loadedBooks} 冊を結合（${combinedChapters.length} チャプター）`);
   }
 
   // ───── §29.1 結合ダイアログを開く（LibraryView から呼ばれる） ─────
@@ -807,7 +817,8 @@ export default function App() {
           initialScrollRatio={initialScrollRatio}
           onPageChange={handlePageChange}
           onScrollRatioChange={handleScrollRatioChange}
-          onContextMenu={activeEntry ? setContextMenuEvent : undefined}
+          {/* §29.2: 本棚未保存でも画像切り出しのために長押しメニューを有効化 */}
+          onContextMenu={setContextMenuEvent}
           onInsertedAssetTap={activeEntry ? handleAssetTap : undefined}
           vertical={isVertical}
         />
@@ -886,20 +897,20 @@ export default function App() {
           </div>
         );
       })()}
-      {/* §21 コンテキストメニュー（mkb/vertical + 本棚保存済みの場合のみ） */}
-      {(isMkb || isVertical) && activeEntry && (
+      {/* §21 コンテキストメニュー（mkb/vertical — 本棚未保存でも §29.2 画像切り出しを有効化） */}
+      {(isMkb || isVertical) && (
         <ContextMenu
           event={contextMenuEvent}
           onClose={() => setContextMenuEvent(null)}
           chapterContent={currentChapter?.content}
           chapterId={currentChapter?.id}
-          onHideLine={handleHideLine}
-          onEditLine={handleEditLine}
-          onInsertImage={handleInsertImageFromContext}
+          onHideLine={activeEntry ? handleHideLine : undefined}
+          onEditLine={activeEntry ? handleEditLine : undefined}
+          onInsertImage={activeEntry ? handleInsertImageFromContext : undefined}
           onImportImage={libraries.length > 0 ? handleImportImageFromContext : undefined}
-          onUndo={rewrite.undo}
-          canUndo={rewrite.canUndo}
-          onOpenRewrite={() => setRewriteOpen(true)}
+          onUndo={activeEntry ? rewrite.undo : undefined}
+          canUndo={activeEntry ? rewrite.canUndo : false}
+          onOpenRewrite={activeEntry ? () => setRewriteOpen(true) : undefined}
         />
       )}
       {/* §16 エクスポート */}
