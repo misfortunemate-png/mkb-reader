@@ -33,11 +33,11 @@ function rehypeTateChuYoko() {
         }
         const run = m[1];
         if (run.length >= 2 && run.length <= 3) {
-          // 2-3文字: text-combine-upright: all で縦中横
+          // 2-3文字: tcy クラスで縦中横（style 文字列は React が受け付けないのでクラス方式）
           parts.push({
             type: 'element',
             tagName: 'span',
-            properties: { style: 'text-combine-upright: all' },
+            properties: { className: ['tcy'] },
             children: [{ type: 'text', value: run }],
           });
         } else {

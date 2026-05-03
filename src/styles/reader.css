@@ -2005,6 +2005,11 @@ button {
   max-height: 80vh;
   width: auto;
 }
+/* 何を: 縦中横（tate-chu-yoko）— 2〜3文字の半角英数字を正立表示
+   なぜ: §30 — inline style 文字列は React が拒否するためクラスで適用 */
+.vertical-mode .tcy {
+  text-combine-upright: all;
+}
 
 /* 縦書きチェックボックス（FileLoader） */
 .vertical-check {
