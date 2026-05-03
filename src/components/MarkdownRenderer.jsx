@@ -64,7 +64,7 @@ function rehypeTateChuYoko() {
     }
     return 0;
   }
-  return (tree) => processNode(tree, null, 0);
+  return (tree) => { processNode(tree, null, 0); };
 }
 
 // 画像のサイズ比率からクラスを決める
