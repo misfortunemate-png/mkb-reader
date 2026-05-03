@@ -11,6 +11,62 @@ import { useMemo, useState } from 'react';
 import { IMAGE_DISPLAY_THRESHOLDS } from '../hooks/useSettings.js';
 import { applyRewrite } from '../utils/rewriteEngine.js';
 
+// 何を: 縦中横（tate-chu-yoko）rehype プラグイン
+// なぜ: §30 — 縦書きモード時、2〜3文字の半角英数字を text-combine-upright:all で正立表示。
+//       4文字以上の英単語（"Claude" 等）は横倒しのまま残す（仕様書 §30）
+function rehypeTateChuYoko() {
+  // HAST テキストノードを再帰走査し、2-3文字の半角英数ランをラップする
+  function processNode(node, parent, index) {
+    if (node.type === 'text') {
+      const text = node.value;
+      // 高速パス: 2-3文字の半角英数字がなければスキップ
+      if (!/[A-Za-z0-9]{2}/.test(text)) return 0;
+
+      const parts = [];
+      let lastIdx = 0;
+      // 連続する半角英数字のランを抽出
+      const re = /([A-Za-z0-9]+)/g;
+      let m;
+      while ((m = re.exec(text)) !== null) {
+        if (m.index > lastIdx) {
+          parts.push({ type: 'text', value: text.slice(lastIdx, m.index) });
+        }
+        const run = m[1];
+        if (run.length >= 2 && run.length <= 3) {
+          // 2-3文字: text-combine-upright: all で縦中横
+          parts.push({
+            type: 'element',
+            tagName: 'span',
+            properties: { style: 'text-combine-upright: all' },
+            children: [{ type: 'text', value: run }],
+          });
+        } else {
+          // 1文字または4文字以上: 横倒しのまま
+          parts.push({ type: 'text', value: run });
+        }
+        lastIdx = m.index + run.length;
+      }
+      if (lastIdx < text.length) parts.push({ type: 'text', value: text.slice(lastIdx) });
+
+      if (parent && parts.some((p) => p.type === 'element')) {
+        parent.children.splice(index, 1, ...parts);
+        return parts.length - 1; // 追加されたノード数の差分を返す（呼び出し元がインデックスを調整）
+      }
+      return 0;
+    }
+    // 子ノードを持つ要素は再帰処理
+    if (node.children) {
+      let i = 0;
+      while (i < node.children.length) {
+        const extra = processNode(node.children[i], node, i);
+        i += 1 + extra;
+      }
+    }
+    return 0;
+  }
+  return (tree) => processNode(tree, null, 0);
+}
+
 // 画像のサイズ比率からクラスを決める
 // 何を: 長辺 / viewportWidth と imageDisplayMode に応じて 'img-inline'|'img-block'|'img-fullpage' を返す
 // なぜ: 仕様書 §11 表 — 画像のサイズで表示扱いを変えて、テキストとの一体感を保つ
@@ -71,6 +127,8 @@ export default function MarkdownRenderer({
   insertedAssetUrl,
   // 差し込み画像タップ（サイズ変更/削除）
   onInsertedAssetTap,
+  // §30 縦書きモード
+  vertical = false,
 }) {
   const [modal, setModal] = useState(null);
 
@@ -92,6 +150,12 @@ export default function MarkdownRenderer({
   }, [chapters]);
 
   const hrefTemplate = (permalink) => `#chapter:${permalink}`;
+
+  // §30: 縦書き時のみ縦中横プラグインを追加
+  const rehypePlugins = useMemo(
+    () => vertical ? [rehypeRaw, rehypeTateChuYoko] : [rehypeRaw],
+    [vertical],
+  );
 
   if (chapter?.plainText) {
     return (
@@ -124,7 +188,7 @@ export default function MarkdownRenderer({
         // なぜ: §14 の読み替えハイライトを <mark> タグで表現する。
         //       sandbox 対象外（同一 React ツリー内）なので XSS リスクは
         //       「ユーザーが自分で入力した display 文字列」に限定される
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={rehypePlugins}
         urlTransform={(url) => {
           if (typeof url !== 'string') return url;
           if (url.startsWith('blob:') || url.startsWith('#') || url.startsWith('data:image/')) return url;

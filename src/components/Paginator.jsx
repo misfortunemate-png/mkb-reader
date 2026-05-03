@@ -276,6 +276,7 @@ export default function Paginator({
             rewriteHighlight={rewriteHighlight}
             insertedAssetUrl={insertedAssetUrl}
             onInsertedAssetTap={onInsertedAssetTap}
+            vertical={vertical}
           />
         </div>
       </div>
