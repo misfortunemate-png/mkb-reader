@@ -43,6 +43,9 @@ export default function App() {
   const [view, setView] = useState('shelf');
   const [activeEntry, setActiveEntry] = useState(null);
   const [lastFile, setLastFile] = useState(null);
+  // §30: Bookshelf など FileLoader を通らない経路でも縦書き確認を出すための共通ダイアログ状態
+  const [verticalPending, setVerticalPending] = useState(null); // null | { file }
+  const [verticalPendingChecked, setVerticalPendingChecked] = useState(false);
 
   // §28 本棚/ライブラリ切り替えタブ（localStorageで永続化）
   const [shelfView, setShelfView] = useState(
@@ -346,9 +349,22 @@ export default function App() {
     const opts = entry.fileType === 'vertical' ? { vertical: true } : {};
     await loadFile(bookEntryToFile(entry), opts);
   }
-  async function handlePickFile(file, opts = {}) {
+  // 何を: Bookshelf などから md/txt が来たとき、縦書き確認を挟む
+  // なぜ: §30 D-005 — FileLoader 経由以外でも縦書き判定が必要
+  const VERTICAL_EXT_RE = /\.(md|markdown|txt)$/i;
+  async function handlePickFile(fileOrFiles, opts = {}) {
+    // 単一の md/txt かつ vertical が未確定 → 確認ダイアログへ
+    if (
+      !Array.isArray(fileOrFiles) &&
+      !('vertical' in opts) &&
+      VERTICAL_EXT_RE.test(fileOrFiles?.name || '')
+    ) {
+      setVerticalPending({ file: fileOrFiles });
+      setVerticalPendingChecked(false);
+      return;
+    }
     setActiveEntry(null);
-    await loadFileAndRemember(file, opts);
+    await loadFileAndRemember(fileOrFiles, opts);
   }
   // §18 取込フロー用: ChatImporter に渡す自動ロード URL
   const [chatImportUrl, setChatImportUrl] = useState(null);
@@ -452,6 +468,37 @@ export default function App() {
           </div>
         )}
         <Toast message={toastMsg} onDismiss={() => setToastMsg(null)} />
+        {/* §30: 縦書き確認ダイアログ（Bookshelf の＋開くからも表示される） */}
+        {verticalPending && (
+          <div className="vertical-pending-overlay" onClick={() => setVerticalPending(null)}>
+            <div className="vertical-pending-dialog" onClick={(e) => e.stopPropagation()}>
+              <p className="hint">{verticalPending.file.name}</p>
+              <label className="vertical-check">
+                <input
+                  type="checkbox"
+                  checked={verticalPendingChecked}
+                  onChange={(e) => setVerticalPendingChecked(e.target.checked)}
+                />
+                縦書きとして読み込む
+              </label>
+              <div className="vertical-confirm-btns">
+                <button
+                  type="button"
+                  className="file-btn"
+                  onClick={async () => {
+                    const { file } = verticalPending;
+                    setVerticalPending(null);
+                    setActiveEntry(null);
+                    await loadFileAndRemember(file, { vertical: verticalPendingChecked });
+                  }}
+                >読み込む</button>
+                <button type="button" className="file-btn" onClick={() => setVerticalPending(null)}>
+                  キャンセル
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </>
     );
   }
