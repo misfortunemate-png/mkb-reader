@@ -10,21 +10,28 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import JSZip from 'jszip';
 import { resizeImage, resizeImagesInZip } from './useImageResize.js';
 
-const DB_NAME = 'mkb-reader';
-const DB_VERSION = 1;
+export const DB_NAME = 'mkb-reader';
+// §28: DB_VERSION=2 で libraries ストアを追加。useLibrary.js でも参照するため export
+export const DB_VERSION = 2;
 const STORE = 'books';
 
 // 何を: IndexedDB を開く（必要ならスキーマを upgrade）
-// なぜ: 仕様書 §8 の DB 設計（DB名, ストア名, キー id, インデックス lastOpenedAt）
-function openDb() {
+// なぜ: §8 の DB 設計 + §28 で libraries ストアを追加。useLibrary.js と共有するため export
+export function openDb() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (event) => {
       const db = req.result;
+      // books ストア（既存）
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: 'id' });
         store.createIndex('lastOpenedAt', 'lastOpenedAt', { unique: false });
         store.createIndex('title', 'title', { unique: false });
+      }
+      // §28: libraries ストア新設（DB_VERSION=2 upgrade 時のみ）
+      if (!db.objectStoreNames.contains('libraries')) {
+        const libStore = db.createObjectStore('libraries', { keyPath: 'id' });
+        libStore.createIndex('updatedAt', 'updatedAt', { unique: false });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -152,6 +159,43 @@ export function useBookshelf() {
     await refresh();
   }, [refresh]);
 
+  // ───── §27 新規IF ─────
+
+  // 何を: 本のタイトルを変更する（fileData は変更しない）
+  // なぜ: 仕様書 §27 — リネーム機能
+  const renameBook = useCallback(async (id, newTitle) => {
+    const db = dbRef.current; if (!db) return;
+    const store = tx(db, 'readwrite');
+    const entry = await awaitReq(store.get(id));
+    if (!entry) return;
+    await awaitReq(store.put({ ...entry, title: newTitle.trim() || entry.title }));
+    await refresh();
+  }, [refresh]);
+
+  // 何を: 本にタグを追加する
+  // なぜ: 仕様書 §27 — タグ機能（tags?: string[]）
+  const addTag = useCallback(async (id, tag) => {
+    const db = dbRef.current; if (!db) return;
+    const store = tx(db, 'readwrite');
+    const entry = await awaitReq(store.get(id));
+    if (!entry) return;
+    const tags = entry.tags || [];
+    if (tags.includes(tag)) return;
+    await awaitReq(store.put({ ...entry, tags: [...tags, tag] }));
+    await refresh();
+  }, [refresh]);
+
+  // 何を: 本からタグを削除する
+  // なぜ: 仕様書 §27 — タグ機能
+  const removeTag = useCallback(async (id, tag) => {
+    const db = dbRef.current; if (!db) return;
+    const store = tx(db, 'readwrite');
+    const entry = await awaitReq(store.get(id));
+    if (!entry) return;
+    await awaitReq(store.put({ ...entry, tags: (entry.tags || []).filter((t) => t !== tag) }));
+    await refresh();
+  }, [refresh]);
+
   // ───── ヘルパ（書庫UIから扱いやすく） ─────
 
   // 同タイトルの既存エントリ検索（上書き判定用）
@@ -215,6 +259,10 @@ export function useBookshelf() {
     saveLastPosition,
     refresh,
     resizeProgress,
+    // §27 新規
+    renameBook,
+    addTag,
+    removeTag,
   };
 }
 

@@ -9,6 +9,7 @@ import FileLoader from './components/FileLoader.jsx';
 import ChapterNav from './components/ChapterNav.jsx';
 import Paginator from './components/Paginator.jsx';
 import Bookshelf from './components/Bookshelf.jsx';
+import LibraryView from './components/LibraryView.jsx';
 import SettingsPanel from './components/SettingsPanel.jsx';
 import HtmlRenderer from './components/HtmlRenderer.jsx';
 import JsonRenderer from './components/JsonRenderer.jsx';
@@ -23,6 +24,7 @@ import { MenuIcon, ArrowLeftIcon, BookmarkIcon, PenIcon, DownloadIcon, SettingsI
 import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
+import { useLibrary } from './hooks/useLibrary.js';
 import { useSettings } from './hooks/useSettings.js';
 
 // 何を: 同梱サンプル一覧
@@ -42,6 +44,19 @@ export default function App() {
   const [activeEntry, setActiveEntry] = useState(null);
   const [lastFile, setLastFile] = useState(null);
 
+  // §28 本棚/ライブラリ切り替えタブ（localStorageで永続化）
+  const [shelfView, setShelfView] = useState(
+    () => localStorage.getItem('shelf-view') || 'bookshelf'
+  );
+  function handleShelfViewChange(v) {
+    setShelfView(v);
+    localStorage.setItem('shelf-view', v);
+  }
+
+  // §28 ライブラリ経由で開いたときの層Bの編集コンテキスト
+  // null = 通常の開き方。libraryEdits がある場合は rewrite.rules の上に重ねる
+  const [libraryContext, setLibraryContext] = useState(null);
+
   const { content, mkb, error, loading, loadFile, loadFromUrl } = useMkbLoader();
   const {
     books,
@@ -55,7 +70,25 @@ export default function App() {
     saveLocalSettings,
     saveLastPosition,
     resizeProgress,
+    renameBook,
+    addTag,
+    removeTag,
   } = useBookshelf();
+
+  // §28 ライブラリフック
+  const {
+    libraries,
+    createLibrary,
+    deleteLibrary,
+    renameLibrary,
+    addFolder,
+    addItem,
+    removeNode,
+    moveNode,
+    renameNode,
+    findReferencingLibraries,
+    removeNodesByBookId,
+  } = useLibrary();
 
   // §5 §6 §7 + §4.6 二層: 開いている本の id を渡してローカル設定を有効化
   const {
@@ -108,13 +141,35 @@ export default function App() {
     saveLocalSettings,
   });
 
+  // §28 層A(rewrite.rules) + 層B(libraryContext.edits) を合成した実効ルール
+  // なぜ: 層BのeditsはlocalSettings.rewriteの上に重ねる（仕様書 D-003）
+  const effectiveRewriteRules = useMemo(() => {
+    if (!libraryContext?.edits) return rewrite.rules;
+    const edits = libraryContext.edits;
+    return {
+      ...rewrite.rules,
+      hiddenRanges: [...(rewrite.rules.hiddenRanges || []), ...(edits.hiddenRanges || [])],
+      insertedAssets: [
+        ...(rewrite.rules.insertedAssets || []),
+        ...(edits.insertedAssets || []),
+        ...(edits.importedAssets || []),
+      ],
+      lineEdits: [...(rewrite.rules.lineEdits || []), ...(edits.lineEdits || [])],
+    };
+  }, [rewrite.rules, libraryContext]);
+
   // §15 InsertedAsset の Blob URL キャッシュ（id → blob URL）
   // 何を: ArrayBuffer のままだと <img src> で使えないので Blob URL を作る
   // なぜ: localSettings.rewrite.insertedAssets[].data は ArrayBuffer 永続。
   //       描画時だけ URL 化、book 切替時に解放してメモリリーク防止
   const assetUrlMapRef = useRef(new Map());
   const insertedAssetUrls = useMemo(() => {
-    const list = rewrite.rules.insertedAssets || [];
+    // §28: 層AのinsertedAssets + 層BのimportedAssetsを合わせてBlob URL化
+    const list = [
+      ...(rewrite.rules.insertedAssets || []),
+      ...(libraryContext?.edits?.importedAssets || []),
+      ...(libraryContext?.edits?.insertedAssets || []),
+    ];
     const next = new Map();
     for (const a of list) {
       const cached = assetUrlMapRef.current.get(a.id);
@@ -132,7 +187,7 @@ export default function App() {
     }
     assetUrlMapRef.current = next;
     return next;
-  }, [rewrite.rules.insertedAssets]);
+  }, [rewrite.rules.insertedAssets, libraryContext]);
 
   // book 切替時にすべての URL を破棄
   useEffect(() => {
@@ -253,8 +308,27 @@ export default function App() {
     return loadFile(file);
   }
 
+  // ───── §28 ライブラリ → ビューア ─────
+  // なぜ: 仕様書 §28.4 — sourceBookIdでBookEntryを取得し、層Bのeditsをセット
+  async function handleOpenLibraryItem(bookEntry, edits) {
+    setLibraryContext(edits ? { edits } : null);
+    setActiveEntry(bookEntry);
+    setLastFile(null);
+    const freshLs = await getLocalSettings(bookEntry.id);
+    pendingLastPositionRef.current = freshLs?.lastPosition || null;
+    await updateLastOpened(bookEntry.id);
+    await loadFile(bookEntryToFile(bookEntry));
+  }
+
+  // ───── §28 削除時にライブラリ参照もカスケード削除 ─────
+  async function handleDeleteBook(id) {
+    await removeNodesByBookId(id);
+    await deleteBook(id);
+  }
+
   // ───── 本棚 → ビューア ─────
   async function handleOpenBook(entry) {
+    setLibraryContext(null);
     setActiveEntry(entry);
     setLastFile(null);
     // §26: saveLastPosition は refresh() を呼ばないため books state の lastPosition が古い可能性がある
@@ -320,17 +394,53 @@ export default function App() {
   if (view === 'shelf') {
     return (
       <>
-        <Bookshelf
-          books={books}
-          loading={shelfLoading || loading}
-          error={error}
-          onPickFile={handlePickFile}
-          onOpenBook={handleOpenBook}
-          onDeleteBook={deleteBook}
-          onLoadSample={handleLoadSample}
-          samples={SAMPLES}
-          onOpenChatImporter={() => setView('chat-import')}
-        />
+        {shelfView === 'bookshelf' ? (
+          <Bookshelf
+            books={books}
+            loading={shelfLoading || loading}
+            error={error}
+            onPickFile={handlePickFile}
+            onOpenBook={handleOpenBook}
+            onDeleteBook={handleDeleteBook}
+            onLoadSample={handleLoadSample}
+            samples={SAMPLES}
+            onOpenChatImporter={() => setView('chat-import')}
+            onRenameBook={renameBook}
+            onAddTag={addTag}
+            onRemoveTag={removeTag}
+            onCheckLibraryRefs={findReferencingLibraries}
+            shelfView={shelfView}
+            onShelfViewChange={handleShelfViewChange}
+          />
+        ) : (
+          <div className="bookshelf">
+            {/* §28 ライブラリタブ時もヘッダーを表示 */}
+            <header className="bookshelf-header">
+              <div className="title">mkb-reader</div>
+            </header>
+            <div className="shelf-tabs">
+              <button type="button"
+                className={`shelf-tab ${shelfView === 'bookshelf' ? 'active' : ''}`}
+                onClick={() => handleShelfViewChange('bookshelf')}>本棚</button>
+              <button type="button"
+                className={`shelf-tab ${shelfView === 'library' ? 'active' : ''}`}
+                onClick={() => handleShelfViewChange('library')}>ライブラリ</button>
+            </div>
+            <LibraryView
+              libraries={libraries}
+              books={books}
+              onOpenLibraryItem={handleOpenLibraryItem}
+              onCreateLibrary={createLibrary}
+              onDeleteLibrary={deleteLibrary}
+              onRenameLibrary={renameLibrary}
+              onAddFolder={addFolder}
+              onAddItem={addItem}
+              onRemoveNode={removeNode}
+              onMoveNode={moveNode}
+              onRenameNode={renameNode}
+            />
+          </div>
+        )}
         <Toast message={toastMsg} onDismiss={() => setToastMsg(null)} />
       </>
     );
@@ -472,7 +582,7 @@ export default function App() {
           swipeDirection={settings.swipeDirection}
           hrStyle={settings.hrStyle}
           imageDisplayMode={settings.imageDisplayMode}
-          rewriteRules={rewrite.rules}
+          rewriteRules={effectiveRewriteRules}
           rewriteHighlight={settings.rewriteHighlight}
           insertedAssetUrl={insertedAssetUrl}
           tapZone={settings.tapZone}
