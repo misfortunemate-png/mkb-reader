@@ -29,6 +29,9 @@ export default function Paginator({
   onInsertedAssetTap,
   // §30 縦書きモード（スクロール固定、writing-mode: vertical-rl）
   vertical = false,
+  // §31 チャプター境界突破コールバック
+  onChapterAdvance,
+  onChapterRetreat,
 }) {
   // §30: vertical モード時はページネーションを無効にしてスクロール固定
   const enabled = !vertical && mode === 'page';
@@ -41,6 +44,9 @@ export default function Paginator({
     enabled,
     deps: [chapter?.id, chapter?.content],
     initialPage,
+    // §31: ページモード時のチャプター境界コールバック
+    onAdvance: onChapterAdvance,
+    onRetreat: onChapterRetreat,
   });
 
   // インジケーターのフェード（操作後一定時間表示）
@@ -90,6 +96,69 @@ export default function Paginator({
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, initialScrollRatio, onScrollRatioChange]);
+
+  // §31: スクロールモード／縦書きモードのチャプター境界突破
+  // 何を: スクロール末尾/先頭でさらにスワイプしたとき次/前チャプターへ
+  // なぜ: ページモードは usePagination の next/prev で処理済み。スクロール系は別途検知が必要
+  useEffect(() => {
+    if (enabled) return; // ページモードは usePagination 側で処理
+    if (!onChapterAdvance && !onChapterRetreat) return;
+    const frame = frameRef.current;
+    if (!frame) return;
+
+    let atEnd = false;
+    let atStart = true;
+
+    function updateEdgeState() {
+      if (vertical) {
+        // 縦書き: 横スクロール（scrollLeft は負またはゼロ、RTL）
+        const sl = Math.abs(frame.scrollLeft);
+        atStart = sl < 2;
+        atEnd = sl + frame.clientWidth >= frame.scrollWidth - 2;
+      } else {
+        atStart = frame.scrollTop < 2;
+        atEnd = frame.scrollTop + frame.clientHeight >= frame.scrollHeight - 2;
+      }
+    }
+
+    let touchStartX = null;
+    let touchStartY = null;
+
+    function onScroll() { updateEdgeState(); }
+    function onTouchStart(e) {
+      updateEdgeState();
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }
+    function onTouchEnd(e) {
+      if (touchStartX == null) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      touchStartX = touchStartY = null;
+      if (vertical) {
+        // 縦書き: 横スワイプで判定（左スワイプ=前進、右スワイプ=後退）
+        if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+          if (dx < 0 && atEnd) onChapterAdvance?.();
+          if (dx > 0 && atStart) onChapterRetreat?.({ fromEnd: true });
+        }
+      } else {
+        // スクロールモード: 縦スワイプで判定（上スワイプ=前進、下スワイプ=後退）
+        if (Math.abs(dy) > 50 && Math.abs(dy) > Math.abs(dx)) {
+          if (dy < 0 && atEnd) onChapterAdvance?.();
+          if (dy > 0 && atStart) onChapterRetreat?.({ fromEnd: true });
+        }
+      }
+    }
+
+    frame.addEventListener('scroll', onScroll, { passive: true });
+    frame.addEventListener('touchstart', onTouchStart, { passive: true });
+    frame.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      frame.removeEventListener('scroll', onScroll);
+      frame.removeEventListener('touchstart', onTouchStart);
+      frame.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [enabled, vertical, onChapterAdvance, onChapterRetreat, frameRef]);
 
   // キーボード操作（仕様書 §4）
   useEffect(() => {

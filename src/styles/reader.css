@@ -2137,3 +2137,98 @@ button {
 [data-theme="dark"] .lib-tool-btn.export {
   color: #90caf9;
 }
+
+/* §32 本棚アイテム: 表紙サムネイル */
+.bk-cover {
+  width: 40px;
+  min-width: 40px;
+  height: 55px;
+  margin-right: 0.6rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--color-code-bg);
+}
+.bk-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* §32 ライブラリノード: 表紙カード */
+.lib-cover-card {
+  width: 100%;
+  aspect-ratio: 2/3;
+  object-fit: cover;
+  border-radius: 4px;
+  display: block;
+}
+
+/* §33 カタログモード（CSS Grid＋表紙画像） */
+.lib-node-list.catalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 0.6rem;
+  padding: 0.5rem;
+  overflow-y: auto;
+}
+.lib-node-list.catalog .lib-node {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: unset;
+  padding: 0;
+  border-bottom: none;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--color-code-bg);
+}
+.lib-node-list.catalog .lib-node-btn {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  min-height: unset;
+  border-radius: 6px;
+  overflow: hidden;
+}
+/* カタログモード: 表紙なし時のタイトルカード（D-007） */
+.lib-node-list.catalog .lib-node-icon {
+  font-size: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 2/3;
+  background: var(--color-code-bg);
+}
+.lib-node-list.catalog .lib-node-name {
+  font-size: 0.72rem;
+  padding: 0.25rem 0.3rem;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.3;
+}
+.lib-node-list.catalog .lib-node-count {
+  font-size: 0.65rem;
+  padding: 0 0.3rem 0.2rem;
+}
+.lib-node-list.catalog .lib-node-actions {
+  flex-direction: row;
+  justify-content: center;
+  padding: 0.2rem;
+}
+.lib-node-list.catalog .drag-handle,
+.lib-node-list.catalog .lib-node-check {
+  display: none;
+}
+
+/* §33 リストモード（既存と同じ、クラス明示のみ） */
+.lib-node-list.list {
+  display: flex;
+  flex-direction: column;
+}

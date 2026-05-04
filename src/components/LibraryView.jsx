@@ -1,7 +1,7 @@
 // 何を: ライブラリUI（§28 層B基盤）
 // なぜ: 仕様書 §28 — ツリー構造のドリルダウンナビ + 編集モード（タッチイベントベースのDnD）
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // ───── ドラッグ並び替えヘルパ ─────
 
@@ -57,8 +57,12 @@ export default function LibraryView({
   onRemoveNode,
   onMoveNode,
   onRenameNode,
-  onJoinItems,       // §29.1: (libraryId, parentId, selectedNodes) => void
-  onExportMkb,       // §29.3: (libraryId, targetNodeId) => void
+  onJoinItems,           // §29.1: (libraryId, parentId, selectedNodes) => void
+  onExportMkb,           // §29.3: (libraryId, targetNodeId) => void
+  onSetNodeCoverImage,   // §32: (libraryId, nodeId, File) => Promise<void>
+  onUpdateFolderViewMode, // §33: (libraryId, nodeId|null, 'catalog'|'list') => Promise<void>
+  onExportLibrary,       // §34: (libraryId) => Promise<void>
+  onImportLibrary,       // §34: (file) => Promise<void>
 }) {
   // 選択中のライブラリ ID
   const [selectedLibId, setSelectedLibId] = useState(null);
@@ -78,6 +82,12 @@ export default function LibraryView({
   const [newLibName, setNewLibName] = useState('');
   const [creatingLib, setCreatingLib] = useState(false);
 
+  // §32 ノード表紙設定用
+  const nodeCoverInputRef = useRef(null);
+  const nodeCoverTargetRef = useRef(null); // { libraryId, nodeId }
+  // §34 インポート用ファイル入力
+  const libImportInputRef = useRef(null);
+
   const selectedLib = libraries.find((l) => l.id === selectedLibId) || null;
 
   // 現在の階層のノードIDリスト
@@ -89,6 +99,26 @@ export default function LibraryView({
   })();
 
   const currentNodes = currentNodeIds.map((id) => selectedLib?.nodes[id]).filter(Boolean);
+
+  // §32: ノードの coverImage ArrayBuffer → Blob URL マップ
+  const [nodeCoverUrls, setNodeCoverUrls] = useState(new Map());
+  useEffect(() => {
+    const newUrls = new Map();
+    currentNodes.forEach((n) => {
+      if (n.coverImage) newUrls.set(n.id, URL.createObjectURL(new Blob([n.coverImage])));
+    });
+    setNodeCoverUrls(newUrls);
+    return () => newUrls.forEach((url) => URL.revokeObjectURL(url));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentNodeIds.join(','), selectedLibId]);
+
+  // §33: 現在階層の表示モード（'catalog' | 'list'）
+  const currentViewMode = (() => {
+    if (!selectedLib) return 'list';
+    if (path.length === 0) return selectedLib.rootViewMode || 'list';
+    const parentNode = selectedLib.nodes[path[path.length - 1]];
+    return parentNode?.viewMode || 'list';
+  })();
 
   // ───── ドラッグ並び替え ─────
   const { onDragStart, onDragMove, onDragEnd } = useTouchDrag({
@@ -203,6 +233,36 @@ export default function LibraryView({
     }
   }
 
+  // §32: ノード表紙を設定
+  function handleNodeCoverChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const target = nodeCoverTargetRef.current;
+    nodeCoverTargetRef.current = null;
+    if (!file || !target) return;
+    onSetNodeCoverImage?.(target.libraryId, target.nodeId, file);
+  }
+  function handleSetNodeCover(libraryId, nodeId) {
+    nodeCoverTargetRef.current = { libraryId, nodeId };
+    nodeCoverInputRef.current?.click();
+  }
+
+  // §33: 表示モード切替
+  function toggleViewMode() {
+    if (!selectedLib) return;
+    const nodeId = path.length > 0 ? path[path.length - 1] : null;
+    const next = currentViewMode === 'catalog' ? 'list' : 'catalog';
+    onUpdateFolderViewMode?.(selectedLibId, nodeId, next);
+  }
+
+  // §34: ライブラリインポート
+  function handleLibImportChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    onImportLibrary?.(file);
+  }
+
   // ─── レンダリング ───
 
   // ライブラリ未選択 or ライブラリが0件
@@ -234,6 +294,13 @@ export default function LibraryView({
 
   return (
     <div className="library-view">
+      {/* §32 ノード表紙設定用ファイル入力 */}
+      <input ref={nodeCoverInputRef} type="file" accept="image/*"
+        onChange={handleNodeCoverChange} style={{ display: 'none' }} />
+      {/* §34 ライブラリインポート用ファイル入力 */}
+      <input ref={libImportInputRef} type="file" accept=".zip"
+        onChange={handleLibImportChange} style={{ display: 'none' }} />
+
       {/* ライブラリ選択バー */}
       <div className="library-selector">
         <div className="library-chips">
@@ -348,6 +415,25 @@ export default function LibraryView({
                   {selectedNodeIds.size > 0 ? `MKB出力(${selectedNodeIds.size})` : 'MKB出力(全)'}
                 </button>
               )}
+              {/* §34: ライブラリ書き出し/読み込み（編集モード時） */}
+              {editMode && (
+                <>
+                  <button type="button" className="lib-tool-btn"
+                    onClick={() => onExportLibrary?.(selectedLibId)}>
+                    書き出し
+                  </button>
+                  <button type="button" className="lib-tool-btn"
+                    onClick={() => libImportInputRef.current?.click()}>
+                    読み込み
+                  </button>
+                </>
+              )}
+              {/* §33: カタログ/リスト切替 */}
+              <button type="button" className="lib-tool-btn"
+                title={currentViewMode === 'catalog' ? 'リスト表示に切替' : 'カタログ表示に切替'}
+                onClick={toggleViewMode}>
+                {currentViewMode === 'catalog' ? '☰' : '⊞'}
+              </button>
               <button
                 type="button"
                 className={`lib-tool-btn ${editMode ? 'active' : ''}`}
@@ -358,9 +444,9 @@ export default function LibraryView({
             </div>
           </div>
 
-          {/* ノード一覧 */}
+          {/* ノード一覧 §33: catalog/list モード */}
           <ul
-            className="lib-node-list"
+            className={`lib-node-list ${currentViewMode}`}
             onTouchMove={editMode ? onDragMove : undefined}
           >
             {currentNodes.length === 0 ? (
@@ -400,9 +486,13 @@ export default function LibraryView({
                       else handleOpenItem(node);
                     }}
                   >
-                    <span className="lib-node-icon">
-                      {node.type === 'folder' ? '📁' : node.type === 'joined' ? '🔗' : '📄'}
-                    </span>
+                    {/* §32: 表紙サムネイル（カタログモード優先、なければアイコン） */}
+                    {nodeCoverUrls.get(node.id)
+                      ? <img className="lib-cover-card" src={nodeCoverUrls.get(node.id)} alt="" />
+                      : <span className="lib-node-icon">
+                          {node.type === 'folder' ? '📁' : node.type === 'joined' ? '🔗' : '📄'}
+                        </span>
+                    }
                     {/* ノードリネーム */}
                     {renamingNode?.id === node.id ? (
                       <input
@@ -434,6 +524,14 @@ export default function LibraryView({
                         onClick={() => setRenamingNode({ id: node.id, value: node.name })}>
                         ✏
                       </button>
+                      {/* §32: 表紙を設定（フォルダ/アイテム共通） */}
+                      {onSetNodeCoverImage && (
+                        <button type="button" className="lib-node-act-btn"
+                          onClick={() => handleSetNodeCover(selectedLibId, node.id)}
+                          title="表紙を設定">
+                          🖼
+                        </button>
+                      )}
                       <button type="button" className="lib-node-act-btn danger"
                         onClick={() => handleDeleteNode(node.id, node.name)}>
                         🗑

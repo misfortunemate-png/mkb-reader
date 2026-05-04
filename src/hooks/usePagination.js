@@ -3,12 +3,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export function usePagination({ frameRef, trackRef, enabled, deps, initialPage }) {
+export function usePagination({ frameRef, trackRef, enabled, deps, initialPage, onAdvance, onRetreat }) {
   const [page, setPage] = useState(0);
   const [total, setTotal] = useState(1);
   const [pageWidth, setPageWidth] = useState(0);
   // §26: 次の recalc で一度だけ適用するページ番号（適用後 null に戻す）
   const pendingInitialPageRef = useRef(null);
+  // §31: チャプター境界コールバックを ref で保持（stale closure 回避）
+  const onAdvanceRef = useRef(onAdvance);
+  const onRetreatRef = useRef(onRetreat);
+  useEffect(() => { onAdvanceRef.current = onAdvance; }, [onAdvance]);
+  useEffect(() => { onRetreatRef.current = onRetreat; }, [onRetreat]);
 
   // ページ数再計算（リサイズ・コンテンツ変更時）
   const recalc = useCallback(() => {
@@ -125,8 +130,19 @@ export function usePagination({ frameRef, trackRef, enabled, deps, initialPage }
     track.style.transform = `translateX(${-page * pageWidth}px)`;
   }, [enabled, page, pageWidth, trackRef]);
 
-  const next = useCallback(() => setPage((p) => Math.min(total - 1, p + 1)), [total]);
-  const prev = useCallback(() => setPage((p) => Math.max(0, p - 1)), []);
+  // §31: 最終ページで next → onAdvance、先頭ページで prev → onRetreat
+  const next = useCallback(() => {
+    setPage((p) => {
+      if (p >= total - 1) { onAdvanceRef.current?.(); return p; }
+      return p + 1;
+    });
+  }, [total]);
+  const prev = useCallback(() => {
+    setPage((p) => {
+      if (p <= 0) { onRetreatRef.current?.(); return p; }
+      return p - 1;
+    });
+  }, []);
 
   return { page, total, next, prev, recalc, setPage };
 }

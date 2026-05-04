@@ -81,6 +81,7 @@ export default function App() {
     deleteAllBooks,
     updateLastOpened,
     findByTitle,
+    getAllBooks,
     getLocalSettings,
     saveLocalSettings,
     saveLastPosition,
@@ -88,6 +89,7 @@ export default function App() {
     renameBook,
     addTag,
     removeTag,
+    setCoverImage,    // §32
   } = useBookshelf();
 
   // §28 ライブラリフック
@@ -105,6 +107,10 @@ export default function App() {
     updateNodeEdits, // §29.2
     findReferencingLibraries,
     removeNodesByBookId,
+    updateNodeCoverImage,  // §32
+    updateFolderViewMode,  // §33
+    exportLibrary,         // §34
+    importLibrary,         // §34
   } = useLibrary();
 
   // §5 §6 §7 + §4.6 二層: 開いている本の id を渡してローカル設定を有効化
@@ -298,6 +304,31 @@ export default function App() {
     saveLastPosition(activeEntry.id, { chapterId: currentChapter.id, scrollRatio });
   }
 
+  // §31: 次チャプターへ自動送り（ページ末尾またはスクロール末尾でのスワイプ時）
+  function handleChapterAdvance() {
+    if (!mkb) return;
+    const idx = mkb.chapters.findIndex((c) => c.id === currentChapter?.id);
+    if (idx < 0 || idx >= mkb.chapters.length - 1) return;
+    const next = mkb.chapters[idx + 1];
+    if (activeEntry?.id) saveLastPosition(activeEntry.id, { chapterId: next.id, page: 0 });
+    setCurrentId(next.id);
+    setInitialPage(0);
+    setInitialScrollRatio(0);
+  }
+
+  // §31: 前チャプターへ自動戻り（先頭でのスワイプ時）
+  // fromEnd=true のとき前チャプターの末尾ページ/末尾位置から開始
+  function handleChapterRetreat({ fromEnd } = {}) {
+    if (!mkb) return;
+    const idx = mkb.chapters.findIndex((c) => c.id === currentChapter?.id);
+    if (idx <= 0) return;
+    const prev = mkb.chapters[idx - 1];
+    if (activeEntry?.id) saveLastPosition(activeEntry.id, { chapterId: prev.id, page: fromEnd ? 9999 : 0 });
+    setCurrentId(prev.id);
+    setInitialPage(fromEnd ? 9999 : 0);
+    setInitialScrollRatio(fromEnd ? 1 : 0);
+  }
+
   // §21 コンテキストメニューのコールバック群
   function handleHideLine(lineNumber) {
     if (!currentChapter) return;
@@ -443,6 +474,37 @@ export default function App() {
     setLibraryExportState({ libraryId, targetNodeId, selectedNodeIds });
   }
 
+  // ───── §34 ライブラリ ZIP エクスポート ─────
+  async function handleExportLibrary(libraryId) {
+    showToast('書き出し中...');
+    try {
+      await exportLibrary(libraryId, {
+        getAllBooks,
+        getLocalSettings,
+        onProgress: (msg) => msg ? showToast(msg) : setToastMsg(null),
+      });
+      showToast('書き出し完了');
+    } catch (e) {
+      showToast(`書き出しエラー: ${e.message}`);
+    }
+  }
+
+  // ───── §34 ライブラリ ZIP インポート ─────
+  async function handleImportLibrary(file) {
+    showToast('読み込み中...');
+    try {
+      await importLibrary(file, {
+        findByTitle,
+        saveBook,
+        saveLocalSettings,
+        onProgress: (msg) => msg ? showToast(msg) : setToastMsg(null),
+      });
+      showToast('読み込み完了');
+    } catch (e) {
+      showToast(`読み込みエラー: ${e.message}`);
+    }
+  }
+
   // ───── 共通ローダ（lastFile を保持して save 経路に渡す） ─────
   // §30: opts を受け取り { file, opts } として保持することで vertical フラグを保存に引き継ぐ
   async function loadFileAndRemember(file, opts = {}) {
@@ -570,6 +632,7 @@ export default function App() {
             onCheckLibraryRefs={findReferencingLibraries}
             shelfView={shelfView}
             onShelfViewChange={handleShelfViewChange}
+            onSetCoverImage={setCoverImage}
           />
         ) : (
           <div className="bookshelf">
@@ -600,6 +663,10 @@ export default function App() {
               onRenameNode={renameNode}
               onJoinItems={handleJoinItems}
               onExportMkb={handleExportLibraryMkb}
+              onSetNodeCoverImage={updateNodeCoverImage}
+              onUpdateFolderViewMode={updateFolderViewMode}
+              onExportLibrary={handleExportLibrary}
+              onImportLibrary={handleImportLibrary}
             />
           </div>
         )}
@@ -821,6 +888,8 @@ export default function App() {
           onContextMenu={setContextMenuEvent}
           onInsertedAssetTap={activeEntry ? handleAssetTap : undefined}
           vertical={isVertical}
+          onChapterAdvance={handleChapterAdvance}
+          onChapterRetreat={handleChapterRetreat}
         />
       )}
       {content.type === 'html' && (

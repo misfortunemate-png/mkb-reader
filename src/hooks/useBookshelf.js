@@ -106,6 +106,8 @@ export function useBookshelf() {
           const buf = await zip.generateAsync({ type: 'arraybuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } });
           e.fileData = buf;
         }
+        // §32: 手動設定済みでなければ ZIP 内最初の画像を表紙サムネイルに
+        if (!e.coverImage) e.coverImage = await extractCoverImageFromZip(zip);
       } else if (['jpg', 'png', 'gif', 'webp', 'avif', 'bmp'].includes(t)) {
         // 単体画像
         const mime = MIME_BY_TYPE[t] || 'image/png';
@@ -114,6 +116,8 @@ export function useBookshelf() {
         const out = await resizeImage(inputBlob);
         e.fileData = await out.arrayBuffer();
         setResizeProgress({ done: 1, total: 1 });
+        // §32: 単体画像ファイルはリサイズ後データ自体が表紙
+        if (!e.coverImage) e.coverImage = e.fileData;
       }
       await awaitReq(tx(db, 'readwrite').put(e));
       await refresh();
@@ -229,6 +233,19 @@ export function useBookshelf() {
     await refresh();
   }, [refresh]);
 
+  // §32: 表紙画像を手動設定する（400px にリサイズして保存）
+  const setCoverImage = useCallback(async (bookId, imageFile) => {
+    const db = dbRef.current; if (!db) return;
+    const store = tx(db, 'readwrite');
+    const entry = await awaitReq(store.get(bookId));
+    if (!entry) return;
+    const blob = new Blob([await imageFile.arrayBuffer()], { type: imageFile.type });
+    const thumb = await resizeImage(blob, { maxLongSide: 400 });
+    const ab = await thumb.arrayBuffer();
+    await awaitReq(store.put({ ...entry, coverImage: ab }));
+    await refresh();
+  }, [refresh]);
+
   // §26 中断箇所の保存
   // なぜ: localSettings.lastPosition のみを更新する。display/rewrite は一切触れない。
   //   読書中のページ送りのたびに呼ばれるため refresh() は呼ばない（再描画コスト回避）
@@ -263,7 +280,27 @@ export function useBookshelf() {
     renameBook,
     addTag,
     removeTag,
+    // §32 新規
+    setCoverImage,
   };
+}
+
+// §32: ZIP内の最初の画像を400pxサムネイルのArrayBufferとして返す
+async function extractCoverImageFromZip(zip) {
+  const IMG_RE = /\.(jpe?g|png|gif|webp|avif)$/i;
+  const MIME_MAP = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif' };
+  const all = zip.filter((_, f) => !f.dir && IMG_RE.test(f.name));
+  all.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+  const first = all[0];
+  if (!first) return undefined;
+  try {
+    const ab = await first.async('arraybuffer');
+    const ext = (first.name.split('.').pop() || '').toLowerCase();
+    const mime = MIME_MAP[ext] || 'image/jpeg';
+    const blob = new Blob([ab], { type: mime });
+    const thumb = await resizeImage(blob, { maxLongSide: 400 });
+    return thumb.arrayBuffer();
+  } catch { return undefined; }
 }
 
 // 何を: ファイル拡張子 → fileType を決める（拡張: §11）

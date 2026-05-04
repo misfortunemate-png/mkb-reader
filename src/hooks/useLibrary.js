@@ -2,7 +2,9 @@
 // なぜ: 仕様書 §28 — 層Bの基盤。BookEntry とは別ストアでツリー構造を管理する
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import JSZip from 'jszip';
 import { openDb } from './useBookshelf.js';
+import { resizeImage } from './useImageResize.js';
 
 const LIB_STORE = 'libraries';
 
@@ -248,6 +250,34 @@ export function useLibrary() {
     return created;
   }, [updateLib]);
 
+  // §32: ライブラリノードの表紙画像を設定する（400pxにリサイズして保存）
+  const updateNodeCoverImage = useCallback(async (libraryId, nodeId, imageFile) => {
+    const blob = new Blob([await imageFile.arrayBuffer()], { type: imageFile.type });
+    const thumb = await resizeImage(blob, { maxLongSide: 400 });
+    const ab = await thumb.arrayBuffer();
+    await updateLib(libraryId, (lib) => {
+      const nodes = { ...lib.nodes };
+      if (!nodes[nodeId]) return lib;
+      nodes[nodeId] = { ...nodes[nodeId], coverImage: ab };
+      return { ...lib, nodes };
+    });
+  }, [updateLib]);
+
+  // §33: フォルダ/ルートの表示モードを設定する（'catalog' | 'list'）
+  const updateFolderViewMode = useCallback(async (libraryId, nodeId, viewMode) => {
+    if (nodeId === null) {
+      // ルートレベルのviewModeはLibraryオブジェクト自体に保存
+      await updateLib(libraryId, (lib) => ({ ...lib, rootViewMode: viewMode }));
+    } else {
+      await updateLib(libraryId, (lib) => {
+        const nodes = { ...lib.nodes };
+        if (!nodes[nodeId]) return lib;
+        nodes[nodeId] = { ...nodes[nodeId], viewMode };
+        return { ...lib, nodes };
+      });
+    }
+  }, [updateLib]);
+
   // ───── BookEntry 削除連携（§27 カスケード削除） ─────
 
   // 何を: 指定 bookId を参照している全ライブラリ名を返す
@@ -306,6 +336,134 @@ export function useLibrary() {
     await refresh();
   }, [refresh]);
 
+  // §34: ライブラリをZIPファイルとしてエクスポートする（D-008: ZIP形式採用）
+  // 形式: manifest.json + books/{id} + settings/{id}.json + bookcovers/{id} + nodecovers/{id}
+  const exportLibrary = useCallback(async (libraryId, { getAllBooks, getLocalSettings, onProgress }) => {
+    const db = dbRef.current; if (!db) return;
+    const lib = await awaitReq(libTx(db, 'readonly').get(libraryId));
+    if (!lib) return;
+
+    // 参照されている全BookEntry IDを収集
+    const bookIds = new Set();
+    Object.values(lib.nodes).forEach((n) => {
+      if (n.type === 'item' && n.sourceBookId) bookIds.add(n.sourceBookId);
+      if (n.type === 'joined') (n.sourceBookIds || []).forEach((id) => bookIds.add(id));
+    });
+
+    const allBooks = await getAllBooks();
+    const refBooks = allBooks.filter((b) => bookIds.has(b.id));
+
+    const zip = new JSZip();
+
+    // ノードのcoverImageを別ファイルに退避
+    const libMeta = { ...lib, nodes: {} };
+    for (const [id, node] of Object.entries(lib.nodes)) {
+      const { coverImage, ...rest } = node;
+      libMeta.nodes[id] = rest;
+      if (coverImage) zip.file(`nodecovers/${id}`, coverImage);
+    }
+
+    // 各BookEntryをZIPに追加
+    const bookMetas = [];
+    for (let i = 0; i < refBooks.length; i++) {
+      const b = refBooks[i];
+      onProgress?.(`書き出し中... (${i + 1}/${refBooks.length})`);
+      const { fileData, coverImage, ...meta } = b;
+      bookMetas.push(meta);
+      if (fileData) zip.file(`books/${b.id}`, fileData);
+      if (coverImage) zip.file(`bookcovers/${b.id}`, coverImage);
+      const ls = await getLocalSettings(b.id);
+      if (ls) zip.file(`settings/${b.id}.json`, JSON.stringify(ls));
+    }
+
+    zip.file('manifest.json', JSON.stringify({ library: libMeta, books: bookMetas }));
+
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    onProgress?.(null);
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${(lib.name || 'library').replace(/[\\/:*?"<>|]/g, '_')}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  // §34: ZIPファイルからライブラリをインポートする
+  // 重複チェック: title + charCount が一致する既存BookEntryは再利用
+  const importLibrary = useCallback(async (file, { findByTitle, saveBook, saveLocalSettings, onProgress }) => {
+    const db = dbRef.current; if (!db) return;
+
+    const zip = await JSZip.loadAsync(file);
+    const manifestStr = await zip.file('manifest.json')?.async('string');
+    if (!manifestStr) throw new Error('manifest.json が見つかりません');
+    const { library: libMeta, books: bookMetas } = JSON.parse(manifestStr);
+
+    // 旧ID → 新ID のマッピング
+    const idMap = new Map();
+
+    for (let i = 0; i < bookMetas.length; i++) {
+      const meta = bookMetas[i];
+      onProgress?.(`読み込み中... (${i + 1}/${bookMetas.length})`);
+
+      // 重複チェック（同タイトル + 同文字数）
+      const existing = await findByTitle(meta.title);
+      if (existing && existing.charCount === meta.charCount) {
+        idMap.set(meta.id, existing.id);
+        continue;
+      }
+
+      const fileDataAb = await zip.file(`books/${meta.id}`)?.async('arraybuffer');
+      if (!fileDataAb) { idMap.set(meta.id, meta.id); continue; }
+
+      const coverAb = await zip.file(`bookcovers/${meta.id}`)?.async('arraybuffer');
+      const newId = crypto.randomUUID();
+      const newEntry = { ...meta, id: newId, fileData: fileDataAb, coverImage: coverAb || undefined };
+      await saveBook(newEntry);
+      idMap.set(meta.id, newId);
+
+      // localSettings を復元
+      const lsFile = zip.file(`settings/${meta.id}.json`);
+      if (lsFile) {
+        const ls = JSON.parse(await lsFile.async('string'));
+        await saveLocalSettings(newId, ls);
+      }
+    }
+
+    // ライブラリのnodeをID付け替え + nodecover復元
+    const newNodes = {};
+    for (const [id, node] of Object.entries(libMeta.nodes || {})) {
+      let newNode = { ...node };
+      if (node.type === 'item' && node.sourceBookId) {
+        newNode.sourceBookId = idMap.get(node.sourceBookId) || node.sourceBookId;
+      }
+      if (node.type === 'joined' && node.sourceBookIds) {
+        newNode.sourceBookIds = node.sourceBookIds.map((sid) => idMap.get(sid) || sid);
+      }
+      const coverAb = await zip.file(`nodecovers/${id}`)?.async('arraybuffer');
+      if (coverAb) newNode.coverImage = coverAb;
+      newNodes[id] = newNode;
+    }
+
+    // 同名ライブラリが既にあれば "(インポート)" を付加
+    const allLibs = await awaitReq(libTx(db, 'readonly').getAll());
+    const nameConflict = allLibs.some((l) => l.name === libMeta.name);
+    const newLib = {
+      ...libMeta,
+      id: newId(),
+      name: nameConflict ? `${libMeta.name} (インポート)` : libMeta.name,
+      nodes: newNodes,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+
+    await awaitReq(libTx(db, 'readwrite').put(newLib));
+    onProgress?.(null);
+    await refresh();
+  }, [refresh]);
+
   return {
     libraries,
     loading,
@@ -321,5 +479,12 @@ export function useLibrary() {
     updateNodeEdits,
     findReferencingLibraries,
     removeNodesByBookId,
+    // §32 新規
+    updateNodeCoverImage,
+    // §33 新規
+    updateFolderViewMode,
+    // §34 新規
+    exportLibrary,
+    importLibrary,
   };
 }

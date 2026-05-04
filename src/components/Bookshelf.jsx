@@ -1,7 +1,7 @@
 // 何を: 本棚UI（§27 本格化: ソート・リネーム・タグ）
 // なぜ: 仕様書 §27 — 日常使いに耐える本棚にする。安定IFのみに依存
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // §23 ファイルタイプ → 絵文字アイコン
 const TYPE_ICON = {
@@ -61,8 +61,13 @@ export default function Bookshelf({
   // §28 切り替えタブ
   shelfView,          // 'bookshelf' | 'library'
   onShelfViewChange,  // (view) => void
+  // §32 表紙画像設定
+  onSetCoverImage,    // (id, File) => Promise<void>
 }) {
   const inputRef = useRef(null);
+  // §32 表紙画像設定用
+  const coverInputRef = useRef(null);
+  const coverTargetIdRef = useRef(null);
 
   // §27 ソート状態（localStorage で永続化）
   const [sortBy, setSortBy]   = useState(() => localStorage.getItem(LS_SORT_BY)  || 'lastOpenedAt');
@@ -111,6 +116,17 @@ export default function Bookshelf({
 
     return list;
   }, [books, sortBy, sortDir, activeTag]);
+
+  // §32: displayBooks の coverImage ArrayBuffer → Blob URL マップ（メモリ管理付き）
+  const [coverUrls, setCoverUrls] = useState(new Map());
+  useEffect(() => {
+    const newUrls = new Map();
+    displayBooks.forEach((b) => {
+      if (b.coverImage) newUrls.set(b.id, URL.createObjectURL(new Blob([b.coverImage])));
+    });
+    setCoverUrls(newUrls);
+    return () => newUrls.forEach((url) => URL.revokeObjectURL(url));
+  }, [displayBooks]);
 
   // §27 ソート変更（localStorage に保存）
   function handleSortBy(key) {
@@ -226,6 +242,20 @@ export default function Bookshelf({
     setTagging({ id, value: '' });
   }
 
+  // §32: 表紙設定ファイル選択
+  function handleCoverChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !coverTargetIdRef.current) return;
+    onSetCoverImage?.(coverTargetIdRef.current, file);
+    coverTargetIdRef.current = null;
+  }
+  function handleMenuSetCover(id) {
+    setMenuState(null);
+    coverTargetIdRef.current = id;
+    coverInputRef.current?.click();
+  }
+
   // §28 ライブラリタブがある場合のタブUI
   const showTabs = onShelfViewChange != null;
 
@@ -245,6 +275,9 @@ export default function Bookshelf({
         <input ref={inputRef} type="file"
           accept=".mkb,.md,.markdown,.txt,.html,.htm,.json,.cbz,.zip,.jpg,.jpeg,.png,.gif,.webp,.avif"
           multiple onChange={handlePickChange} style={{ display: 'none' }} />
+        {/* §32 表紙設定用ファイル入力 */}
+        <input ref={coverInputRef} type="file" accept="image/*"
+          onChange={handleCoverChange} style={{ display: 'none' }} />
       </header>
 
       {/* §28 本棚/ライブラリ切り替えタブ */}
@@ -352,8 +385,14 @@ export default function Bookshelf({
                     onTouchMove={(e) => onTouchMove(e, b.id)}
                     onTouchEnd={(e) => onTouchEnd(e, b.id, b)}
                   >
+                    {/* §32 表紙サムネイル（なければアイコン） */}
+                    <div className="bk-cover">
+                      {coverUrls.get(b.id)
+                        ? <img src={coverUrls.get(b.id)} alt="" />
+                        : <span className="bk-icon">{fileIcon(b)}</span>
+                      }
+                    </div>
                     <span className="bk-title">
-                      <span className="bk-icon">{fileIcon(b)}</span>
                       {/* §27 リネーム中はインライン入力 */}
                       {isRenaming ? (
                         <input
@@ -456,6 +495,13 @@ export default function Bookshelf({
                 onClick={() => handleMenuTag(menuState.id)}>
                 タグを追加
               </button>
+              {/* §32 表紙設定 */}
+              {onSetCoverImage && (
+                <button type="button" className="bk-menu-item"
+                  onClick={() => handleMenuSetCover(menuState.id)}>
+                  表紙を設定
+                </button>
+              )}
               {(book?.tags || []).length > 0 && (
                 <div className="bk-menu-tags">
                   {book.tags.map((tag) => (
