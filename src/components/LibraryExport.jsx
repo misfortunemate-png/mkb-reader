@@ -96,11 +96,16 @@ async function extractRawChapters(bookEntry) {
 
 // 何を: ライブラリまたはフォルダを走査して mkb を生成・ダウンロード
 // なぜ: §29.3 — フォルダ→チャプター構造マッピング、importedAssets を assets/ に収集
-export async function exportLibraryMkb({ library, targetNodeId, books, getLocalSettings }) {
-  // 走査対象ノードの決定（library 全体 or 特定フォルダ）
-  const rootNodeIds = targetNodeId
+export async function exportLibraryMkb({ library, targetNodeId, selectedNodeIds, books, getLocalSettings }) {
+  // 走査対象ノードの決定（library 全体 or 特定フォルダ、さらに selectedNodeIds で絞り込み）
+  const allRootNodeIds = targetNodeId
     ? (library.nodes[targetNodeId]?.children || [])
     : (library.rootNodes || []);
+  // 何を: チェックボックスで選択されたノードだけを対象にする
+  // なぜ: 選択なしで全出力すると結合ノードと個別アイテムが重複してしまう
+  const rootNodeIds = (selectedNodeIds && selectedNodeIds.length > 0)
+    ? allRootNodeIds.filter((id) => selectedNodeIds.includes(id))
+    : allRootNodeIds;
 
   const outChapters = []; // { id, title, content }
   const outAssets = new Map(); // assetPath → ArrayBuffer
@@ -259,10 +264,11 @@ export async function exportLibraryMkb({ library, targetNodeId, books, getLocalS
 // 何を: エクスポート確認ダイアログ（ExportDialog と同じボトムシートスタイル）
 // なぜ: §29.3 — 「MKBとして出力」ボタン押下で表示し、ユーザーがダウンロードを確認する
 export default function LibraryExport({
-  library,       // Library オブジェクト
-  targetNodeId,  // null = ライブラリ全体、それ以外 = フォルダ ID
-  books,         // BookEntry[] — 全本棚
-  getLocalSettings, // (bookId) => Promise<LocalSettings>
+  library,           // Library オブジェクト
+  targetNodeId,      // null = ライブラリ全体、それ以外 = フォルダ ID
+  selectedNodeIds,   // string[] | null — チェックボックス選択（null=全体）
+  books,             // BookEntry[] — 全本棚
+  getLocalSettings,  // (bookId) => Promise<LocalSettings>
   onClose,
 }) {
   const [busy, setBusy] = useState(false);
@@ -270,15 +276,15 @@ export default function LibraryExport({
 
   if (!library) return null;
 
-  const targetName = targetNodeId
-    ? (library.nodes[targetNodeId]?.name || library.name)
-    : library.name;
+  const targetName = (selectedNodeIds && selectedNodeIds.length > 0)
+    ? `${selectedNodeIds.length} 件の選択`
+    : (targetNodeId ? (library.nodes[targetNodeId]?.name || library.name) : library.name);
 
   async function run() {
     setBusy(true);
     setError(null);
     try {
-      await exportLibraryMkb({ library, targetNodeId, books, getLocalSettings });
+      await exportLibraryMkb({ library, targetNodeId, selectedNodeIds, books, getLocalSettings });
       onClose?.();
     } catch (e) {
       console.error('LibraryExport:', e);

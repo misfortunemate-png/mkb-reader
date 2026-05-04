@@ -337,14 +337,15 @@ export default function LibraryView({
                   結合({selectedNodeIds.size})
                 </button>
               )}
-              {/* §29.3: MKBとして出力 */}
+              {/* §29.3: MKBとして出力（選択中ノードがあればそれだけ、なければ全体） */}
               {editMode && (
                 <button type="button" className="lib-tool-btn export"
                   onClick={() => {
                     const targetNodeId = path.length > 0 ? path[path.length - 1] : null;
-                    onExportMkb?.(selectedLibId, targetNodeId);
+                    const sel = selectedNodeIds.size > 0 ? [...selectedNodeIds] : null;
+                    onExportMkb?.(selectedLibId, targetNodeId, sel);
                   }}>
-                  MKB出力
+                  {selectedNodeIds.size > 0 ? `MKB出力(${selectedNodeIds.size})` : 'MKB出力(全)'}
                 </button>
               )}
               <button

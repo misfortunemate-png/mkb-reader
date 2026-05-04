@@ -439,8 +439,8 @@ export default function App() {
   }
 
   // ───── §29.3 ライブラリ MKB エクスポート ─────
-  function handleExportLibraryMkb(libraryId, targetNodeId) {
-    setLibraryExportState({ libraryId, targetNodeId });
+  function handleExportLibraryMkb(libraryId, targetNodeId, selectedNodeIds) {
+    setLibraryExportState({ libraryId, targetNodeId, selectedNodeIds });
   }
 
   // ───── 共通ローダ（lastFile を保持して save 経路に渡す） ─────
@@ -629,6 +629,7 @@ export default function App() {
             <LibraryExport
               library={lib}
               targetNodeId={libraryExportState.targetNodeId}
+              selectedNodeIds={libraryExportState.selectedNodeIds}
               books={books}
               getLocalSettings={getLocalSettings}
               onClose={() => setLibraryExportState(null)}
