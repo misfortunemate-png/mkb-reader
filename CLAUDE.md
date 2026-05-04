@@ -23,6 +23,6 @@ MarkBook（.mkb）およびMarkdownファイルを美しく読むためのPWAビ
 - コード内コメントで各ブロックの意図（何を・なぜ）を記述する
 - 仕様書に記載のない判断が必要な場合は作業を停止し報告する
 - 仕様書に記載のないファイルを新規作成しない
-- 仕様書+指示書: docs/spec-phase5.md（§31〜§34、現行）
-- 過去仕様書: docs/spec-phase4.md, docs/spec-phase3c-v2.md, docs/spec-phase1.md
+- 現フェーズ: 運用フェーズ（開発完了）。新機能追加は新仕様書を発行してから実装する
+- 過去仕様書: docs/spec-phase5.md（最新）, docs/spec-phase4.md, docs/spec-phase3c-v2.md, docs/spec-phase1.md
 - 過去指示書: docs/instructions-phase4ab.md, docs/instructions-phase4c.md, docs/instructions-phase4d.md
