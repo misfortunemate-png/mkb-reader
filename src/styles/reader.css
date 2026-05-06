@@ -2057,6 +2057,156 @@ button {
 }
 
 /* ─────────────────────────────────────────────────────────
+   §33 txt変換ダイアログ（TxtConvertModal）
+   ───────────────────────────────────────────────────────── */
+
+.txt-convert-dialog {
+  background: var(--color-bg);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  max-width: 90vw;
+  width: 36rem;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+}
+.txt-convert-tabs {
+  display: flex;
+  gap: 0.5rem;
+}
+.txt-convert-tabs button {
+  flex: 1;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  opacity: 0.6;
+  cursor: pointer;
+}
+.txt-convert-tabs button.active {
+  opacity: 1;
+  font-weight: bold;
+  background: var(--color-accent, #4a90d9);
+  color: #fff;
+  border-color: transparent;
+}
+.txt-convert-preview {
+  flex: 1;
+  overflow-y: auto;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: var(--color-bg-secondary, #f5f5f5);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  min-height: 8rem;
+  max-height: 40vh;
+  line-height: 1.5;
+}
+
+/* ─────────────────────────────────────────────────────────
+   §31 一括登録ダイアログ（BatchImport）
+   ───────────────────────────────────────────────────────── */
+
+.batch-import-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.batch-import-dialog {
+  background: var(--color-bg);
+  border-radius: 12px;
+  padding: 1.5rem;
+  max-width: 90vw;
+  width: 28rem;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+}
+.batch-import-dialog--wide {
+  width: 44rem;
+}
+.batch-import-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  margin: 0;
+}
+.batch-import-select-btns {
+  display: flex;
+  gap: 0.75rem;
+}
+.batch-import-list-wrap {
+  overflow-y: auto;
+  max-height: 40vh;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+.batch-import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.batch-import-table th,
+.batch-import-table td {
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+.batch-import-table th {
+  background: var(--color-bg-secondary, #f0f0f0);
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+}
+.batch-import-name {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.batch-import-unsupported {
+  opacity: 0.4;
+}
+.batch-import-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.batch-import-progress-bar {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.batch-import-progress-fill {
+  height: 100%;
+  background: var(--color-accent, #4a90d9);
+  transition: width 0.2s ease;
+}
+.batch-import-skip-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  font-size: 0.82rem;
+  max-height: 8rem;
+  overflow-y: auto;
+  color: var(--color-text-secondary);
+}
+
+/* ─────────────────────────────────────────────────────────
    §29 LibraryEditor / LibraryExport UI
    ───────────────────────────────────────────────────────── */
 

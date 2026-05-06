@@ -2,6 +2,7 @@
 // なぜ: 仕様書 §27 — 日常使いに耐える本棚にする。安定IFのみに依存
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import BatchImport from './BatchImport.jsx';
 
 // §23 ファイルタイプ → 絵文字アイコン
 const TYPE_ICON = {
@@ -9,6 +10,7 @@ const TYPE_ICON = {
   json: '📋', html: '🌐', htm: '🌐',
   cbz: '🖼', zip: '🖼',
   jpg: '🖼', jpeg: '🖼', png: '🖼', gif: '🖼', webp: '🖼', avif: '🖼',
+  pdf: '📕', // §32
   chat: '💬', vertical: '縦',
 };
 function fileIcon(entry) {
@@ -63,11 +65,16 @@ export default function Bookshelf({
   onShelfViewChange,  // (view) => void
   // §32 表紙画像設定
   onSetCoverImage,    // (id, File) => Promise<void>
+  // §31 一括登録
+  onSaveBook,         // (entry) => Promise<void>
+  onFindByTitle,      // (title) => Promise<BookEntry|null>
 }) {
   const inputRef = useRef(null);
   // §32 表紙画像設定用
   const coverInputRef = useRef(null);
   const coverTargetIdRef = useRef(null);
+  // §31 一括登録ダイアログ
+  const [batchOpen, setBatchOpen] = useState(false);
 
   // §27 ソート状態（localStorage で永続化）
   const [sortBy, setSortBy]   = useState(() => localStorage.getItem(LS_SORT_BY)  || 'lastOpenedAt');
@@ -272,8 +279,14 @@ export default function Bookshelf({
         <button type="button" className="pick-btn" onClick={handlePickClick} aria-label="ファイルを開く">
           ＋ 開く
         </button>
+        {/* §31 一括登録ボタン */}
+        {onSaveBook && onFindByTitle && (
+          <button type="button" className="pick-btn" onClick={() => setBatchOpen(true)} aria-label="まとめて追加">
+            まとめて追加
+          </button>
+        )}
         <input ref={inputRef} type="file"
-          accept=".mkb,.md,.markdown,.txt,.html,.htm,.json,.cbz,.zip,.jpg,.jpeg,.png,.gif,.webp,.avif"
+          accept=".mkb,.md,.markdown,.txt,.html,.htm,.json,.cbz,.zip,.jpg,.jpeg,.png,.gif,.webp,.avif,.pdf"
           multiple onChange={handlePickChange} style={{ display: 'none' }} />
         {/* §32 表紙設定用ファイル入力 */}
         <input ref={coverInputRef} type="file" accept="image/*"
@@ -527,6 +540,14 @@ export default function Bookshelf({
           </div>
         );
       })()}
+      {/* §31 一括登録ダイアログ */}
+      {batchOpen && onSaveBook && onFindByTitle && (
+        <BatchImport
+          onSaveBook={onSaveBook}
+          findByTitle={onFindByTitle}
+          onClose={() => setBatchOpen(false)}
+        />
+      )}
     </div>
   );
 }

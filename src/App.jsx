@@ -16,6 +16,8 @@ import SettingsPanel from './components/SettingsPanel.jsx';
 import HtmlRenderer from './components/HtmlRenderer.jsx';
 import JsonRenderer from './components/JsonRenderer.jsx';
 import ImageViewer from './components/ImageViewer.jsx';
+import PdfRenderer from './components/PdfRenderer.jsx';
+import TxtConvertModal from './components/TxtConvertModal.jsx';
 import ChatImporter from './components/ChatImporter.jsx';
 import RewritePanel from './components/RewritePanel.jsx';
 import ImageInserter from './components/ImageInserter.jsx';
@@ -31,6 +33,7 @@ import { useSettings } from './hooks/useSettings.js';
 import JSZip from 'jszip';
 import { parseMkbZip, buildSingleMdMkb, buildTxtMkb } from './utils/mkbParser.js';
 import { applyRewrite } from './utils/rewriteEngine.js';
+import { decodeText, convertTxtToMd } from './utils/txtToMd.js';
 
 // 何を: 同梱サンプル一覧
 // なぜ: ウェルカム画面から各形式（mkb / html / json / cbz / chat-import）をワンタップで開く
@@ -54,6 +57,8 @@ export default function App() {
   // §30: Bookshelf など FileLoader を通らない経路でも縦書き確認を出すための共通ダイアログ状態
   const [verticalPending, setVerticalPending] = useState(null); // null | { file }
   const [verticalPendingChecked, setVerticalPendingChecked] = useState(false);
+  // §33: txt 読み込み時の変換確認ダイアログ
+  const [txtPending, setTxtPending] = useState(null); // null | { file, originalText, convertedText }
 
   // §28 本棚/ライブラリ切り替えタブ（localStorageで永続化）
   const [shelfView, setShelfView] = useState(
@@ -507,7 +512,25 @@ export default function App() {
 
   // ───── 共通ローダ（lastFile を保持して save 経路に渡す） ─────
   // §30: opts を受け取り { file, opts } として保持することで vertical フラグを保存に引き継ぐ
+  // §33: txt ファイルは loadFile に渡す前に変換ダイアログを表示する
   async function loadFileAndRemember(file, opts = {}) {
+    // §33: 単一 txt ファイルの場合は変換確認ダイアログへ
+    if (
+      !Array.isArray(file) &&
+      !(file instanceof FileList) &&
+      /\.txt$/i.test(file?.name || '')
+    ) {
+      const buf = await file.arrayBuffer();
+      const { text } = decodeText(buf);
+      if (!text) {
+        alert('このファイルのエンコーディングを判別できませんでした。UTF-8またはShift_JISに変換してから取り込んでください');
+        return;
+      }
+      const converted = convertTxtToMd(text);
+      setLastFile({ file, opts });
+      setTxtPending({ file, originalText: text, convertedText: converted });
+      return; // loadFile はダイアログ確定後に呼ぶ
+    }
     setLastFile({ file, opts });
     return loadFile(file, opts);
   }
@@ -546,7 +569,8 @@ export default function App() {
   }
   // 何を: Bookshelf などから md/txt が来たとき、縦書き確認を挟む
   // なぜ: §30 D-005 — FileLoader 経由以外でも縦書き判定が必要
-  const VERTICAL_EXT_RE = /\.(md|markdown|txt)$/i;
+  //       §33: txt は loadFileAndRemember 内で txtPending として処理するため除外
+  const VERTICAL_EXT_RE = /\.(md|markdown)$/i;
   async function handlePickFile(fileOrFiles, opts = {}) {
     // 単一の md/txt かつ vertical が未確定 → 確認ダイアログへ
     if (
@@ -590,16 +614,28 @@ export default function App() {
   }
 
   // ───── ビューア → 本棚保存 ─────
+  // §32: images/pdf/html/json 型にも対応（旧: mkb のみ）
   async function handleSaveCurrent() {
-    if (!mkb) return;
     if (!lastFile) {
       alert('保存対象のファイルが見つかりません（本棚から開いた項目は既に保存済みです）');
       return;
     }
+    if (!content) return;
+
     // §30: lastFile は { file, opts } 形式。opts.vertical を fileToBookEntry に渡す
     const { file: lastFileObj, opts: lastFileOpts } = lastFile;
-    const charCount = mkb.chapters.reduce((sum, c) => sum + (c.content?.length || 0), 0);
-    const entry = await fileToBookEntry(lastFileObj, { ...mkb.metadata, charCount }, lastFileOpts);
+    let metadata = {};
+    if (mkb) {
+      // mkb/vertical 型のみ charCount をメタデータに含める
+      const charCount = mkb.chapters.reduce((sum, c) => sum + (c.content?.length || 0), 0);
+      metadata = { ...mkb.metadata, charCount };
+    }
+    const entry = await fileToBookEntry(lastFileObj, metadata, lastFileOpts);
+
+    // §32: 大容量 PDF 警告（50MB超）
+    if (content.type === 'pdf' && entry.fileData.byteLength > 50 * 1024 * 1024) {
+      if (!confirm('このPDFは50MBを超えています。保存するとストレージを大きく消費します。続けますか？')) return;
+    }
     const dup = await findByTitle(entry.title);
     if (dup) {
       if (!confirm(`「${entry.title}」は既に本棚にあります。上書きしますか？`)) return;
@@ -609,6 +645,28 @@ export default function App() {
     await saveBook(entry);
     setActiveEntry(entry);
     alert('本棚に保存しました');
+  }
+
+  // ───── §33: txt変換ダイアログ 確定ハンドラ ─────
+  async function handleTxtConvert() {
+    if (!txtPending) return;
+    const { file, convertedText } = txtPending;
+    setTxtPending(null);
+    setActiveEntry(null);
+    // 変換済みテキストを .md ファイルとして loadFile に渡す
+    const mdFile = new File([convertedText], file.name.replace(/\.txt$/i, '.md'), { type: 'text/markdown' });
+    setLastFile({ file: mdFile, opts: {} });
+    await loadFile(mdFile);
+  }
+  async function handleTxtKeepTxt() {
+    if (!txtPending) return;
+    const { file, originalText } = txtPending;
+    setTxtPending(null);
+    setActiveEntry(null);
+    // デコード済みテキストを UTF-8 で再エンコードして loadFile に渡す（文字化けファイルを正常化）
+    const outFile = new File([new TextEncoder().encode(originalText)], file.name, { type: 'text/plain' });
+    setLastFile({ file: outFile, opts: {} });
+    await loadFile(outFile);
   }
 
   // ───── 本棚画面 ─────
@@ -633,6 +691,8 @@ export default function App() {
             shelfView={shelfView}
             onShelfViewChange={handleShelfViewChange}
             onSetCoverImage={setCoverImage}
+            onSaveBook={saveBook}
+            onFindByTitle={findByTitle}
           />
         ) : (
           <div className="bookshelf">
@@ -734,6 +794,17 @@ export default function App() {
               </div>
             </div>
           </div>
+        )}
+        {/* §33: txt変換確認ダイアログ */}
+        {txtPending && (
+          <TxtConvertModal
+            fileName={txtPending.file.name}
+            originalText={txtPending.originalText}
+            convertedText={txtPending.convertedText}
+            onConvert={handleTxtConvert}
+            onKeepTxt={handleTxtKeepTxt}
+            onCancel={() => { setTxtPending(null); setLastFile(null); }}
+          />
         )}
       </>
     );
@@ -900,6 +971,10 @@ export default function App() {
       )}
       {content.type === 'images' && (
         <ImageViewer images={content.images} swipeDirection={settings.swipeDirection} />
+      )}
+      {/* §32: PDF は iframe で表示 */}
+      {content.type === 'pdf' && (
+        <PdfRenderer data={content.data} />
       )}
 
       {/* §12 リサイズ進捗 */}

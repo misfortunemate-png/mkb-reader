@@ -6,7 +6,8 @@ import { useRef, useState } from 'react';
 
 // 何を: 縦書き確認ダイアログを表示する拡張子
 // なぜ: §30 D-005 — インポート時に縦書き/横書きを確定する。他の形式には不要
-const VERTICAL_EXT_RE = /\.(md|markdown|txt)$/i;
+//       §33: txt は App.jsx 側の txtPending で専任処理するため除外
+const VERTICAL_EXT_RE = /\.(md|markdown)$/i;
 
 export default function FileLoader({ onSelect, error, loading, onLoadSample }) {
   const inputRef = useRef(null);
@@ -82,7 +83,7 @@ export default function FileLoader({ onSelect, error, loading, onLoadSample }) {
       <input
         ref={inputRef}
         type="file"
-        accept=".mkb,.md,.markdown,.txt,.html,.htm,.json,.cbz,.zip,.jpg,.jpeg,.png,.gif,.webp,.avif"
+        accept=".mkb,.md,.markdown,.txt,.html,.htm,.json,.cbz,.zip,.jpg,.jpeg,.png,.gif,.webp,.avif,.pdf"
         multiple
         onChange={handleChange}
         style={{ display: 'none' }}

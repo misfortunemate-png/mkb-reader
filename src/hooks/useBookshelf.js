@@ -310,6 +310,7 @@ const TYPE_BY_EXT = {
   md: 'md', markdown: 'md', txt: 'txt',
   html: 'html', htm: 'html', json: 'json',
   jpg: 'jpg', jpeg: 'jpg', png: 'png', gif: 'gif', webp: 'webp', avif: 'avif',
+  pdf: 'pdf', // §32
 };
 const MIME_BY_TYPE = {
   mkb: 'application/zip', zip: 'application/zip', cbz: 'application/zip',
@@ -318,6 +319,7 @@ const MIME_BY_TYPE = {
   vertical: 'text/markdown',
   html: 'text/html', json: 'application/json',
   jpg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif',
+  pdf: 'application/pdf', // §32
 };
 
 // 何を: File → BookEntry へ変換

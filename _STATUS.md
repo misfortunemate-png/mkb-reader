@@ -1,7 +1,7 @@
 # プロジェクトステータス
 
 プロジェクト: mkb-reader
-最終更新: 2026-05-04（Phase 5 合格・開発終了・運用フェーズ移行）
+最終更新: 2026-05-06（Phase 5 続き §31〜§33 実装）
 更新者: PM（クリーデ）
 
 ## 現在のフェーズ
@@ -29,7 +29,7 @@
 ## 実装済み機能一覧
 
 ### 層A（本棚・ビューア）
-- mkb/md/txt/html/json/画像/CBZ の読込・表示
+- mkb/md/txt/html/json/画像/CBZ/PDF の読込・表示
 - CSS multi-column ページネーション + スクロールモード
 - フォント（日本語3種+欧文）・テーマ・行間・余白カスタマイズ
 - global/local 二層設定
@@ -43,6 +43,9 @@
 - 本棚: ソート・リネーム・タグ・表紙画像・カスケード削除警告
 - 縦書き表示（fileType: vertical、スクロール固定、縦中横）
 - PWA（オフライン対応）
+- **一括登録（BatchImport）: 複数ファイル/フォルダを本棚に一括取り込み** ← Phase 5続き
+- **PDF対応: iframe（ブラウザ内蔵ビューア）で表示・本棚保存** ← Phase 5続き
+- **txt→Markdown変換: 変換ダイアログ・UTF-8/Shift_JISフォールバック** ← Phase 5続き
 
 ### 層B（ライブラリ）
 - ツリー構造（フォルダ/アイテム）・ドリルダウンナビゲーション
@@ -67,11 +70,23 @@
 | docs/spec-phase3c-v2.md | §10〜§26（Phase 2〜3c統合） |
 | docs/spec-phase4.md | §27〜§30 |
 | docs/spec-phase5.md | §31〜§34（指示書一体型） |
+| docs/spec-phase5-2.md | Phase 5続き §31〜§33（一括登録・PDF・txt変換） |
 | docs/requirements-v2.md | 要件定義 |
+
+---
+
+## Phase 5 続き 実装内容（2026-05-06）
+
+| § | 内容 |
+|---|---|
+| §31 | 複数ファイル一括本棚登録（BatchImport: ファイル/フォルダ選択・進捗・同名スキップ） |
+| §32 | 画像本棚保存フロー接続・PDF新規対応（PdfRenderer, handleSaveCurrent修正） |
+| §33 | txt→Markdown変換ダイアログ（TxtConvertModal、UTF-8/Shift_JISフォールバック） |
 
 ---
 
 ## 運用フェーズの方針
 
 - バグ修正・小改善は随時対応
-- 大規模な機能追加が必要になった場合はPhase 6として新規仕様書を作成
+- 大規模な機能追加が必要になった場合は新仕様書を発行して実装する
+- デプロイ先: GitHub Pages（main ブランチへの push で自動デプロイ）

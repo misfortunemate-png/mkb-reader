@@ -36,6 +36,8 @@ function revokeContent(c) {
       try { if (img.url) URL.revokeObjectURL(img.url); } catch { /* ignore */ }
     }
   }
+  // §32: pdf は PdfRenderer 側で blob URL を管理するため、ここでは何もしない
+  if (c.type === 'pdf') return;
 }
 
 export function useMkbLoader() {
@@ -115,6 +117,10 @@ export function useMkbLoader() {
         // §30: vertical フラグが立っている場合は type='vertical' で返す（パーサーは共通）
         const data = buildSingleMdMkb(text, name);
         result = opts?.vertical ? { type: 'vertical', data } : { type: 'mkb', data };
+      } else if (lower.endsWith('.pdf')) {
+        // §32: PDF は ArrayBuffer のまま保持し、PdfRenderer に渡す
+        const buf = await file.arrayBuffer();
+        result = { type: 'pdf', data: buf, name };
       } else if (lower.endsWith('.txt')) {
         const text = await file.text();
         const data = buildTxtMkb(text, name);
@@ -128,7 +134,7 @@ export function useMkbLoader() {
         const text = await file.text();
         result = { type: 'json', content: text, name };
       } else {
-        throw new Error('対応していない拡張子です（.mkb / .md / .txt / .html / .json / .cbz / 画像）');
+        throw new Error('対応していない拡張子です（.mkb / .md / .txt / .html / .json / .cbz / 画像 / .pdf）');
       }
       revokeContent(prevRef.current);
       prevRef.current = result;
