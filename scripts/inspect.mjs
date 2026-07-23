@@ -159,6 +159,16 @@ for (const f of ['library-backup.bat', 'docs/start-all-v4-append.bat']) {
   else fail(`${f}: CRLF改行でない（CR=${crCount}, LF=${lfCount}）`);
 }
 
+// ── 8. _STATUS.md 30行以内 ──
+console.log('\n[ 8. _STATUS.md 行数確認 ]');
+try {
+  const lines = readText('_STATUS.md').split('\n').filter((l, i, a) => i < a.length - 1 || l !== '');
+  if (lines.length <= 30) ok(`_STATUS.md: ${lines.length} 行（≤30）`);
+  else fail(`_STATUS.md: ${lines.length} 行（30行超過）`);
+} catch (e) {
+  fail('_STATUS.md 読み取りエラー', e.message);
+}
+
 // ── 結果 ──
 console.log(`\n=== 結果: ${passed} passed, ${failed} failed, ${warnings} warnings ===\n`);
 if (failed > 0) process.exit(1);
