@@ -1,0 +1,17 @@
+{
+  "name": "mkb-reader-server",
+  "version": "0.2.0",
+  "description": "mkb-reader library server",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "node resolveSafe.test.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "js-yaml": "^4.1.0",
+    "jszip": "^3.10.1"
+  }
+}

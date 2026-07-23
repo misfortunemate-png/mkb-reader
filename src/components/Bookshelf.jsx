@@ -61,13 +61,15 @@ export default function Bookshelf({
   onRemoveTag,        // (id, tag) => Promise<void>
   onCheckLibraryRefs, // (bookId) => Promise<string[]>  §28完成後にwire
   // §28 切り替えタブ
-  shelfView,          // 'bookshelf' | 'library'
+  shelfView,          // 'bookshelf' | 'library' | 'remote'
   onShelfViewChange,  // (view) => void
   // §32 表紙画像設定
   onSetCoverImage,    // (id, File) => Promise<void>
   // §31 一括登録
   onSaveBook,         // (entry) => Promise<void>
   onFindByTitle,      // (title) => Promise<BookEntry|null>
+  // §36 書庫タブ
+  remoteConnected,    // boolean
 }) {
   const inputRef = useRef(null);
   // §32 表紙画像設定用
@@ -263,7 +265,7 @@ export default function Bookshelf({
     coverInputRef.current?.click();
   }
 
-  // §28 ライブラリタブがある場合のタブUI
+  // §28 タブUI（本棚 / ライブラリ / 書庫）
   const showTabs = onShelfViewChange != null;
 
   return (
@@ -293,7 +295,7 @@ export default function Bookshelf({
           onChange={handleCoverChange} style={{ display: 'none' }} />
       </header>
 
-      {/* §28 本棚/ライブラリ切り替えタブ */}
+      {/* §28/§36 本棚/ライブラリ/書庫 切り替えタブ */}
       {showTabs && (
         <div className="shelf-tabs">
           <button
@@ -306,6 +308,14 @@ export default function Bookshelf({
             className={`shelf-tab ${shelfView === 'library' ? 'active' : ''}`}
             onClick={() => onShelfViewChange('library')}
           >ライブラリ</button>
+          <button
+            type="button"
+            className={`shelf-tab ${shelfView === 'remote' ? 'active' : ''}`}
+            onClick={() => onShelfViewChange('remote')}
+            title={remoteConnected ? '書庫（接続中）' : '書庫（未接続）'}
+          >
+            書庫{remoteConnected ? '' : ' ✕'}
+          </button>
         </div>
       )}
 

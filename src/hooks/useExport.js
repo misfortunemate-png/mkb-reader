@@ -40,7 +40,7 @@ function downloadBlob(blob, filename) {
 //   - applyRewrite: true=読み替え適用 / false=原本そのまま
 //   - bookEntry: 必須。fileData / fileType / 元 yaml メタ
 //   - rewriteRules: 適用時に必須（applyRewrite=true のとき）
-export async function exportMkb({
+async function _buildMkbCore({
   bookEntry,
   rewriteRules,
   title,
@@ -142,13 +142,26 @@ export async function exportMkb({
     }
   }
 
-  // 5) ZIP バイナリ生成 → ダウンロード
+  // 5) ZIP バイナリ生成
+  const filename = `${safeName(finalMeta.title)}.mkb`;
   const buf = await out.generateAsync({
-    type: 'blob',
+    type: 'arraybuffer',
     compression: 'DEFLATE',
     compressionOptions: { level: 6 },
   });
-  const filename = `${safeName(finalMeta.title)}.mkb`;
-  downloadBlob(buf, filename);
-  return { size: buf.size, filename };
+  return { buf, filename };
+}
+
+// 何を: MKB バッファを生成する（書庫保存・ダウンロード共通）
+// なぜ: §36.3 — 書庫へ保存はダウンロードせず PUT するため分離
+export async function buildMkbBuffer(opts) {
+  return _buildMkbCore(opts);
+}
+
+// 何を: BookEntry → 読み替え適用済みの mkb (ZIP) を生成し、ダウンロード
+// なぜ: 仕様書 §16 — 読み替え結果を「新しい原本」として書き出す。
+export async function exportMkb(opts) {
+  const { buf, filename } = await _buildMkbCore(opts);
+  downloadBlob(new Blob([buf]), filename);
+  return { size: buf.byteLength, filename };
 }

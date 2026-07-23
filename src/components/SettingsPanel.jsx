@@ -71,6 +71,12 @@ export default function SettingsPanel({
   onResetGlobalSettings,
   // §30 縦書き時は一部の設定を非表示にする
   fileType,
+  // §36 書庫接続状態
+  remoteConnected,     // boolean
+  remoteItemCount,     // number
+  remoteConnectedAt,   // number | null (timestamp)
+  remoteFetching,      // boolean
+  onRemoteRescan,      // () => void
 }) {
   // §30: 縦書きモードではページネーション・スワイプ・タップゾーン設定を非表示
   const isVertical = fileType === 'vertical';
@@ -377,6 +383,32 @@ export default function SettingsPanel({
             >スクロール</button>
           </div>
         </Section>}
+
+        {/* §36 書庫接続状態 */}
+        <Section title="書庫" defaultOpen={false}>
+          <div className="settings-row">
+            <span className="rw-hint" style={{ flex: 1 }}>
+              {remoteConnected ? '接続中' : '未接続'}
+              {remoteConnected && remoteItemCount != null && ` — ${remoteItemCount} 件`}
+            </span>
+            {remoteConnected && onRemoteRescan && (
+              <button type="button" className="settings-btn"
+                onClick={onRemoteRescan} disabled={remoteFetching}>
+                {remoteFetching ? '取得中…' : '索引再取得'}
+              </button>
+            )}
+          </div>
+          {remoteConnected && remoteConnectedAt && (
+            <p className="rw-hint" style={{ marginTop: '0.4rem' }}>
+              最終取得: {new Date(remoteConnectedAt).toLocaleTimeString('ja')}
+            </p>
+          )}
+          {!remoteConnected && (
+            <p className="rw-hint" style={{ marginTop: '0.4rem' }}>
+              書庫サーバが起動していないか、GitHub Pages版では使用できません
+            </p>
+          )}
+        </Section>
 
         {/* データ管理 — 検証用。設計思想に反する操作（破壊的）なので最下部に配置 */}
         {(onDeleteAllBooks || onResetGlobalSettings) && (

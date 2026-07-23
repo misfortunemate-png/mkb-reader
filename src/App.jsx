@@ -19,6 +19,8 @@ import ImageViewer from './components/ImageViewer.jsx';
 import PdfRenderer from './components/PdfRenderer.jsx';
 import TxtConvertModal from './components/TxtConvertModal.jsx';
 import ChatImporter from './components/ChatImporter.jsx';
+import RemoteLibraryView from './components/RemoteLibraryView.jsx';
+import SaveToLibraryDialog from './components/SaveToLibraryDialog.jsx';
 import RewritePanel from './components/RewritePanel.jsx';
 import ImageInserter from './components/ImageInserter.jsx';
 import ExportDialog from './components/ExportDialog.jsx';
@@ -27,6 +29,7 @@ import Toast from './components/Toast.jsx';
 import { MenuIcon, ArrowLeftIcon, BookmarkIcon, PenIcon, DownloadIcon, SettingsIcon } from './components/Icons.jsx';
 import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
+import { useRemoteLibrary } from './hooks/useRemoteLibrary.js';
 import { useBookshelf, fileToBookEntry, bookEntryToFile } from './hooks/useBookshelf.js';
 import { useLibrary } from './hooks/useLibrary.js';
 import { useSettings } from './hooks/useSettings.js';
@@ -298,15 +301,25 @@ export default function App() {
   }
 
   // §26: ページ変更時に位置を保存（debounce は Paginator 側で済み）
+  // §36.2: 書庫アイテムは localStorage に保存
   function handlePageChange(page) {
-    if (!activeEntry?.id || !currentChapter) return;
-    saveLastPosition(activeEntry.id, { chapterId: currentChapter.id, page });
+    if (!currentChapter) return;
+    if (activeEntry?.id) {
+      saveLastPosition(activeEntry.id, { chapterId: currentChapter.id, page });
+    } else if (remoteItemPath) {
+      localStorage.setItem(`lp-remote:${remoteItemPath}`, JSON.stringify({ chapterId: currentChapter.id, page }));
+    }
   }
 
   // §26: スクロール比率変更時に位置を保存（debounce は Paginator 側で済み）
+  // §36.2: 書庫アイテムは localStorage に保存
   function handleScrollRatioChange(scrollRatio) {
-    if (!activeEntry?.id || !currentChapter) return;
-    saveLastPosition(activeEntry.id, { chapterId: currentChapter.id, scrollRatio });
+    if (!currentChapter) return;
+    if (activeEntry?.id) {
+      saveLastPosition(activeEntry.id, { chapterId: currentChapter.id, scrollRatio });
+    } else if (remoteItemPath) {
+      localStorage.setItem(`lp-remote:${remoteItemPath}`, JSON.stringify({ chapterId: currentChapter.id, scrollRatio }));
+    }
   }
 
   // §31: 次チャプターへ自動送り（ページ末尾またはスクロール末尾でのスワイプ時）
@@ -585,6 +598,54 @@ export default function App() {
     setActiveEntry(null);
     await loadFileAndRemember(fileOrFiles, opts);
   }
+  // §36 書庫フック
+  const remoteLibrary = useRemoteLibrary();
+
+  // §36.2 書庫から開いたファイルの相対パス（lastPosition に使用）
+  const [remoteItemPath, setRemoteItemPath] = useState(null);
+
+  // §36.3/§37 書庫への保存ダイアログ状態
+  // { body: ArrayBuffer, suggestedPath: string } | null
+  const [saveToLibraryPending, setSaveToLibraryPending] = useState(null);
+  const [saveToLibraryBusy, setSaveToLibraryBusy] = useState(false);
+
+  function handleRequestSaveToLibrary(body, suggestedPath) {
+    setSaveToLibraryPending({ body, suggestedPath });
+  }
+
+  async function handleDoSaveToLibrary(relPath) {
+    if (!saveToLibraryPending) return;
+    const { body } = saveToLibraryPending;
+    setSaveToLibraryBusy(true);
+    try {
+      await remoteLibrary.putFile(relPath, body);
+      setSaveToLibraryPending(null);
+      showToast(`書庫に保存しました: ${relPath}`);
+    } catch (e) {
+      showToast(`書庫保存エラー: ${e.message}`);
+    } finally {
+      setSaveToLibraryBusy(false);
+    }
+  }
+
+  // §36.2 書庫アイテムを既存読込パイプラインへ合流させる
+  async function handleOpenRemoteItem(item) {
+    try {
+      showToast('読み込み中…');
+      const blob = await remoteLibrary.fetchFile(item.path);
+      const file = new File([blob], item.path.split('/').pop(), { type: blob.type });
+      setRemoteItemPath(item.path);
+      setActiveEntry(null);
+      // §36.2 lastPosition 復元（localStorage から）
+      const lpStr = localStorage.getItem(`lp-remote:${item.path}`);
+      pendingLastPositionRef.current = lpStr ? JSON.parse(lpStr) : null;
+      setToastMsg(null);
+      await loadFileAndRemember(file);
+    } catch (e) {
+      showToast(`書庫読込エラー: ${e.message}`);
+    }
+  }
+
   // §18 取込フロー用: ChatImporter に渡す自動ロード URL
   const [chatImportUrl, setChatImportUrl] = useState(null);
 
@@ -693,7 +754,39 @@ export default function App() {
             onSetCoverImage={setCoverImage}
             onSaveBook={saveBook}
             onFindByTitle={findByTitle}
+            remoteConnected={remoteLibrary.connected}
           />
+        ) : shelfView === 'remote' ? (
+          /* §36 書庫タブ */
+          <div className="bookshelf">
+            <header className="bookshelf-header">
+              <div className="title">mkb-reader</div>
+            </header>
+            <div className="shelf-tabs">
+              <button type="button"
+                className="shelf-tab"
+                onClick={() => handleShelfViewChange('bookshelf')}>本棚</button>
+              <button type="button"
+                className="shelf-tab"
+                onClick={() => handleShelfViewChange('library')}>ライブラリ</button>
+              <button type="button"
+                className="shelf-tab active">
+                書庫{remoteLibrary.connected ? '' : ' ✕'}
+              </button>
+            </div>
+            {remoteLibrary.connected ? (
+              <RemoteLibraryView
+                items={remoteLibrary.items}
+                fetching={remoteLibrary.fetching}
+                onOpenItem={handleOpenRemoteItem}
+              />
+            ) : (
+              <div className="bookshelf-empty">
+                <p>書庫サーバに接続できません</p>
+                <p className="hint">フランの書庫サーバが起動しているか確認してください</p>
+              </div>
+            )}
+          </div>
         ) : (
           <div className="bookshelf">
             {/* §28 ライブラリタブ時もヘッダーを表示 */}
@@ -707,6 +800,11 @@ export default function App() {
               <button type="button"
                 className={`shelf-tab ${shelfView === 'library' ? 'active' : ''}`}
                 onClick={() => handleShelfViewChange('library')}>ライブラリ</button>
+              <button type="button"
+                className={`shelf-tab ${shelfView === 'remote' ? 'active' : ''}`}
+                onClick={() => handleShelfViewChange('remote')}>
+                書庫{remoteLibrary.connected ? '' : ' ✕'}
+              </button>
             </div>
             <LibraryView
               libraries={libraries}
@@ -810,19 +908,31 @@ export default function App() {
     );
   }
 
-  // ───── チャットログ取り込み画面（§18） ─────
+  // ───── チャットログ取り込み画面（§18 + §37） ─────
   if (view === 'chat-import') {
     return (
-      <ChatImporter
-        autoLoadUrl={chatImportUrl}
-        onCancel={() => { setChatImportUrl(null); setView('shelf'); }}
-        onOpenSingle={async (file) => {
-          setActiveEntry(null);
-          setChatImportUrl(null);
-          await loadFileAndRemember(file);
-        }}
-        saveBook={saveBook}
-      />
+      <>
+        <ChatImporter
+          autoLoadUrl={chatImportUrl}
+          onCancel={() => { setChatImportUrl(null); setView('shelf'); }}
+          onOpenSingle={async (file) => {
+            setActiveEntry(null);
+            setChatImportUrl(null);
+            await loadFileAndRemember(file);
+          }}
+          saveBook={saveBook}
+          remoteConnected={remoteLibrary.connected}
+          onRequestSaveToLibrary={handleRequestSaveToLibrary}
+        />
+        {saveToLibraryPending && (
+          <SaveToLibraryDialog
+            defaultPath={saveToLibraryPending.suggestedPath}
+            onSave={handleDoSaveToLibrary}
+            onCancel={() => setSaveToLibraryPending(null)}
+            busy={saveToLibraryBusy}
+          />
+        )}
+      </>
     );
   }
 
@@ -885,7 +995,7 @@ export default function App() {
         <button
           type="button"
           className="icon-btn"
-          onClick={() => setView('shelf')}
+          onClick={() => { setView('shelf'); setRemoteItemPath(null); }}
           aria-label="本棚に戻る"
           title="本棚に戻る"
         >
@@ -1057,7 +1167,7 @@ export default function App() {
           onOpenRewrite={activeEntry ? () => setRewriteOpen(true) : undefined}
         />
       )}
-      {/* §16 エクスポート */}
+      {/* §16 エクスポート（§36.3: 書庫へ保存を追加） */}
       {(isMkb || isVertical) && activeEntry && (
         <ExportDialog
           open={exportOpen}
@@ -1066,6 +1176,18 @@ export default function App() {
           defaultTitle={activeEntry.title || ''}
           defaultAuthor={activeEntry.author || ''}
           rewriteRules={rewrite.rules}
+          remoteConnected={remoteLibrary.connected}
+          onRequestSaveToLibrary={handleRequestSaveToLibrary}
+          remoteItemPath={remoteItemPath}
+        />
+      )}
+      {/* §36.3/§37 書庫への保存ダイアログ */}
+      {saveToLibraryPending && (
+        <SaveToLibraryDialog
+          defaultPath={saveToLibraryPending.suggestedPath}
+          onSave={handleDoSaveToLibrary}
+          onCancel={() => setSaveToLibraryPending(null)}
+          busy={saveToLibraryBusy}
         />
       )}
       <Toast message={toastMsg} onDismiss={() => setToastMsg(null)} />
@@ -1085,6 +1207,11 @@ export default function App() {
         onTapZoneChange={handleTapZoneChange}
         fileType={isVertical ? 'vertical' : (isMkb ? 'mkb' : content?.type)}
         bookCount={books?.length || 0}
+        remoteConnected={remoteLibrary.connected}
+        remoteItemCount={remoteLibrary.items.length}
+        remoteConnectedAt={remoteLibrary.connectedAt}
+        remoteFetching={remoteLibrary.fetching}
+        onRemoteRescan={remoteLibrary.rescan}
         onDeleteAllBooks={async () => {
           if (!books?.length) return;
           if (confirm(`本棚の ${books.length} 件をすべて削除します。元に戻せません。よろしいですか？`)) {

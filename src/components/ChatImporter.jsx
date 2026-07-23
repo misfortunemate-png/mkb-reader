@@ -15,10 +15,13 @@ function fmtDate(s) {
 }
 
 export default function ChatImporter({
-  onCancel,            // () => void: キャンセル（本棚に戻る）
-  onOpenSingle,        // (file: File) => void: 1 つだけ変換してビューアで開く
-  saveBook,            // (BookEntry) => Promise<void>: 一括保存
-  autoLoadUrl,         // ?: マウント時に fetch して会話リストを表示する
+  onCancel,                  // () => void: キャンセル（本棚に戻る）
+  onOpenSingle,              // (file: File) => void: 1 つだけ変換してビューアで開く
+  saveBook,                  // (BookEntry) => Promise<void>: 一括保存
+  autoLoadUrl,               // ?: マウント時に fetch して会話リストを表示する
+  // §37: 書庫連携
+  remoteConnected,           // boolean: 書庫が接続中か
+  onRequestSaveToLibrary,    // (buf: ArrayBuffer, suggestedPath: string) => void
 }) {
   const inputRef = useRef(null);
   const [conversations, setConversations] = useState(null);
@@ -124,6 +127,39 @@ export default function ChatImporter({
   const selectedCount = selected.size;
   const total = conversations?.length || 0;
 
+  // ───── 書庫へ保存（§37） ─────
+  async function handleSaveToLibrary() {
+    if (!conversations || selectedCount === 0 || !onRequestSaveToLibrary) return;
+    const targets = conversations.filter((c) => selected.has(c.uuid));
+    setLoading(true);
+    setError(null);
+    try {
+      if (targets.length === 1) {
+        const conv = targets[0];
+        const mkb = conversationToMkbData(conv, { branch: branchMode });
+        const ab = await mkbDataToZipBuffer(mkb);
+        onRequestSaveToLibrary(ab, `${mkb.metadata.title}.mkb`);
+      } else {
+        setProgress({ done: 0, total: targets.length });
+        for (let i = 0; i < targets.length; i++) {
+          const conv = targets[i];
+          const mkb = conversationToMkbData(conv, { branch: branchMode });
+          const ab = await mkbDataToZipBuffer(mkb);
+          onRequestSaveToLibrary(ab, `${mkb.metadata.title}.mkb`);
+          setProgress({ done: i + 1, total: targets.length });
+          // 複数の場合: 各ファイルを逐次保存（ダイアログが都度出る。UI改善は将来工事）
+          await new Promise((r) => setTimeout(r, 0));
+        }
+        setProgress(null);
+      }
+    } catch (e) {
+      console.error(e);
+      setError(e.message || String(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // ───── 変換実行 ─────
   async function handleConvert() {
     if (!conversations || selectedCount === 0) return;
@@ -224,6 +260,17 @@ export default function ChatImporter({
                 title="編集前後を含めて全メッセージ取り込む"
               >全分岐</button>
             </div>
+            {remoteConnected && onRequestSaveToLibrary && (
+              <button
+                type="button"
+                className="settings-btn"
+                onClick={handleSaveToLibrary}
+                disabled={loading || selectedCount === 0}
+                title="変換して書庫へ保存"
+              >
+                {loading ? '変換中…' : '書庫へ保存'}
+              </button>
+            )}
             <button
               type="button"
               className="settings-btn active"

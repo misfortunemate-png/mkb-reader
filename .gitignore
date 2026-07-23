@@ -28,3 +28,7 @@ dist-ssr
 
 # 自動生成のテストmkb（dev/build時に再生成される）
 public/test.mkb
+
+# 書庫サーバ設定（秘密情報を含む）
+server/.env
+server/node_modules

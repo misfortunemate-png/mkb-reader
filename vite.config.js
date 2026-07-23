@@ -47,6 +47,12 @@ export default defineConfig({
         clientsClaim: true,
         runtimeCaching: [
           {
+            // §35.5: /api/ と /healthz はネットワーク専用（SWキャッシュ除外）
+            // なぜ: 索引・実体がSWに滞留して一覧が更新されない事故を構造的に防ぐ
+            urlPattern: /\/(api\/|healthz)/,
+            handler: 'NetworkOnly',
+          },
+          {
             // Google Fonts CSS のキャッシュ（仕様書 §9）
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',
