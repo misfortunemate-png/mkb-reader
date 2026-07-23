@@ -144,14 +144,19 @@ try {
   fail('.gitignore 読み取りエラー', e.message);
 }
 
-// ── 7. bat ファイル ASCII確認 ──
-console.log('\n[ 7. bat ファイル ASCII確認 ]');
+// ── 7. bat ファイル ASCII + CRLF確認 ──
+console.log('\n[ 7. bat ファイル ASCII + CRLF確認 ]');
 for (const f of ['library-backup.bat', 'docs/start-all-v4-append.bat']) {
   if (!exists(f)) { fail(f, 'not found'); continue; }
   const buf = fs.readFileSync(path.join(ROOT, f));
   const hasHighByte = [...buf].some((b) => b > 127);
   if (!hasHighByte) ok(`${f}: ASCII のみ`);
   else fail(`${f}: 非ASCII文字を含む（cmdで構文崩壊リスク）`);
+  // CRLF check: CR数 === LF数 であれば全改行が CRLF
+  const crCount = buf.filter((b) => b === 0x0d).length;
+  const lfCount = buf.filter((b) => b === 0x0a).length;
+  if (crCount > 0 && crCount === lfCount) ok(`${f}: CRLF改行`);
+  else fail(`${f}: CRLF改行でない（CR=${crCount}, LF=${lfCount}）`);
 }
 
 // ── 結果 ──
