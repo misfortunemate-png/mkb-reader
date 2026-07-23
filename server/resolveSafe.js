@@ -28,6 +28,9 @@ export function resolveSafe(libraryRoot, rel) {
       return null;
     }
   }
+  // Windows ドライブレター・UNC パスの明示拒否
+  // （Linux では path.resolve が "C:\..." を相対パスとして扱い root 内に解決してしまうため）
+  if (/^[a-zA-Z]:[\\/]/.test(decoded) || decoded.startsWith('\\\\')) return null;
   const root = path.resolve(libraryRoot);
   const abs = path.resolve(root, decoded);
   // root の外（root 自体は許可、root/../ は拒否）

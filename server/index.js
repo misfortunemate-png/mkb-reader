@@ -80,7 +80,8 @@ async function buildIndex() {
     let names;
     try { names = fs.readdirSync(dir); } catch { return; }
     for (const name of names) {
-      const rel = base ? `${base}/${name}` : name;
+      // replace は Windows で readdirSync が \ を返した場合の安全網
+      const rel = (base ? `${base}/${name}` : name).replace(/\\/g, '/');
       const abs = path.join(dir, name);
       let stat;
       try { stat = fs.statSync(abs); } catch { continue; }
