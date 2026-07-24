@@ -56,7 +56,7 @@ const CONTENT_TYPES = {
 // §35.3 mkb ヘッダ抽出（パース失敗時はファイル名にフォールバック）
 async function extractMkbMeta(abs) {
   try {
-    const buf = fs.readFileSync(abs);
+    const buf = await fs.promises.readFile(abs); // S-1: 非同期化
     const zip = await JSZip.loadAsync(buf);
     const yamlEntry = zip.file(/^markbook\.ya?ml$/i)[0];
     if (!yamlEntry) return {};
@@ -75,26 +75,31 @@ async function extractMkbMeta(abs) {
 }
 
 // §35.3 索引生成（LIBRARY_ROOT を再帰走査）
+// S-1: readdirSync/statSync → 非同期化。Promise.all で batch 50 並行 stat
 async function buildIndex() {
+  console.time('buildIndex'); // S-4
   if (!fs.existsSync(LIBRARY_ROOT)) {
     console.warn(`LIBRARY_ROOT not found: ${LIBRARY_ROOT}`);
+    console.timeEnd('buildIndex');
     return { version: 1, generatedAt: new Date().toISOString(), files: [] };
   }
   const entries = [];
-  function walk(dir, base) {
+  const BATCH = 50;
+  async function walk(dir, base) {
     let names;
-    try { names = fs.readdirSync(dir); } catch { return; }
-    for (const name of names) {
-      // replace は Windows で readdirSync が \ を返した場合の安全網
-      const rel = (base ? `${base}/${name}` : name).replace(/\\/g, '/');
-      const abs = path.join(dir, name);
-      let stat;
-      try { stat = fs.statSync(abs); } catch { continue; }
-      if (stat.isDirectory()) { walk(abs, rel); continue; }
-      entries.push({ abs, rel, stat });
+    try { names = await fs.promises.readdir(dir); } catch { return; }
+    for (let i = 0; i < names.length; i += BATCH) {
+      await Promise.all(names.slice(i, i + BATCH).map(async (name) => {
+        const rel = (base ? `${base}/${name}` : name).replace(/\\/g, '/');
+        const abs = path.join(dir, name);
+        let stat;
+        try { stat = await fs.promises.stat(abs); } catch { return; }
+        if (stat.isDirectory()) { await walk(abs, rel); return; }
+        entries.push({ abs, rel, stat });
+      }));
     }
   }
-  walk(LIBRARY_ROOT, '');
+  await walk(LIBRARY_ROOT, '');
 
   const files = [];
   for (const { abs, rel, stat } of entries) {
@@ -116,6 +121,8 @@ async function buildIndex() {
       meta,
     });
   }
+  console.timeEnd('buildIndex'); // S-4
+  console.log(`buildIndex: ${files.length} files`);
   return { version: 1, generatedAt: new Date().toISOString(), files };
 }
 
@@ -130,8 +137,8 @@ async function getIndex(rescan = false) {
 // ───── Express ─────
 const app = express();
 
-// PUT ボディを raw バイナリとして受信
-app.use('/api/library/file', express.raw({ type: '*/*', limit: '200mb' }));
+// S-2: PUT ボディを raw バイナリとして受信（PUT ルートのみに適用）
+const rawParser = express.raw({ type: '*/*', limit: '200mb' });
 
 // §35.5: /api/ と /healthz はキャッシュ禁止ヘッダを付与
 app.use(['/api/', '/healthz'], (req, res, next) => {
@@ -162,8 +169,8 @@ app.get('/api/library/file', async (req, res) => {
   res.sendFile(safe);
 });
 
-// PUT /api/library/file?path=<相対パス> — ファイル保存
-app.put('/api/library/file', async (req, res) => {
+// PUT /api/library/file?path=<相対パス> — ファイル保存（S-2: rawParser をここでのみ適用）
+app.put('/api/library/file', rawParser, async (req, res) => {
   const safe = resolveSafe(LIBRARY_ROOT, req.query.path || '');
   if (!safe) return res.status(403).json({ error: 'forbidden' });
   try {
@@ -189,8 +196,11 @@ if (fs.existsSync(DIST_DIR)) {
   });
 }
 
-app.listen(PORT, '127.0.0.1', () => {
+// S-3: 起動時に索引を確実に用意してからログ出力
+const startTime = Date.now();
+app.listen(PORT, '127.0.0.1', async () => {
   console.log(`mkb-reader server http://127.0.0.1:${PORT}`);
   console.log(`LIBRARY_ROOT: ${LIBRARY_ROOT}`);
-  getIndex().then((idx) => console.log(`index: ${idx.files.length} files`));
+  const idx = await getIndex();
+  console.log(`index ready: ${idx.files.length} files (${Date.now() - startTime}ms)`);
 });
