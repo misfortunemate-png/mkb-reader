@@ -16,6 +16,7 @@ import SettingsPanel from './components/SettingsPanel.jsx';
 import HtmlRenderer from './components/HtmlRenderer.jsx';
 import JsonRenderer from './components/JsonRenderer.jsx';
 import ImageViewer from './components/ImageViewer.jsx';
+import VideoPlayer from './components/VideoPlayer.jsx';
 import PdfRenderer from './components/PdfRenderer.jsx';
 import TxtConvertModal from './components/TxtConvertModal.jsx';
 import ChatImporter from './components/ChatImporter.jsx';
@@ -1103,6 +1104,10 @@ export default function App() {
       )}
       {content.type === 'images' && (
         <ImageViewer images={content.images} swipeDirection={settings.swipeDirection} spreadMode={spreadMode} />
+      )}
+      {/* §41: 動画は VideoPlayer で再生 */}
+      {content.type === 'video' && (
+        <VideoPlayer src={content.url} name={content.name} onError={(msg) => showToast(msg)} />
       )}
       {/* §32: PDF は iframe で表示 */}
       {content.type === 'pdf' && (

@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 const KIND_ICON = {
   mkb: '📖', md: '📝', text: '📄', pdf: '📕',
   epub: '📗', html: '🌐', json: '📋',
-  cbz: '🖼', image: '🖼', other: '📁',
+  cbz: '🖼', image: '🖼', video: '🎬', other: '📁',
 };
 
 const rtf = new Intl.RelativeTimeFormat('ja', { numeric: 'auto' });

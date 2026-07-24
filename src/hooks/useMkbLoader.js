@@ -25,6 +25,13 @@ const IMG_MIME = {
   gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp',
 };
 
+// §41 動画拡張子判定
+const VIDEO_RE = /\.(mp4|webm|mkv|mov|avi)$/i;
+const VIDEO_MIME = {
+  mp4: 'video/mp4', webm: 'video/webm', mkv: 'video/x-matroska',
+  mov: 'video/quicktime', avi: 'video/x-msvideo',
+};
+
 // 何を: 旧 mkb 用 Blob URL 解放（型問わず統一して呼べるように）
 // なぜ: ViewerContent 切替時のメモリリーク防止
 function revokeContent(c) {
@@ -38,6 +45,10 @@ function revokeContent(c) {
   }
   // §32: pdf は PdfRenderer 側で blob URL を管理するため、ここでは何もしない
   if (c.type === 'pdf') return;
+  // §41: 動画 Blob URL の解放
+  if (c.type === 'video' && c.url) {
+    try { URL.revokeObjectURL(c.url); } catch { /* ignore */ }
+  }
 }
 
 export function useMkbLoader() {
@@ -133,8 +144,16 @@ export function useMkbLoader() {
         // §10: JSON は整形表示
         const text = await file.text();
         result = { type: 'json', content: text, name };
+      } else if (VIDEO_RE.test(lower)) {
+        // §41: 動画は Blob URL を生成して VideoPlayer に渡す
+        // File は Blob のサブクラスなので arrayBuffer 読み取り不要（ブラウザが Range を処理）
+        const ext = (lower.split('.').pop() || '').toLowerCase();
+        const mime = VIDEO_MIME[ext] || 'video/mp4';
+        const blob = file instanceof Blob ? file : new Blob([file], { type: mime });
+        const url = URL.createObjectURL(blob);
+        result = { type: 'video', url, name };
       } else {
-        throw new Error('対応していない拡張子です（.mkb / .md / .txt / .html / .json / .cbz / 画像 / .pdf）');
+        throw new Error('対応していない拡張子です（.mkb / .md / .txt / .html / .json / .cbz / 画像 / .pdf / 動画）');
       }
       revokeContent(prevRef.current);
       prevRef.current = result;

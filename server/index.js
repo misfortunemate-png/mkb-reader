@@ -24,6 +24,8 @@ const KIND_MAP = {
   '.cbz': 'cbz', '.zip': 'cbz',
   '.jpg': 'image', '.jpeg': 'image', '.png': 'image',
   '.gif': 'image', '.webp': 'image', '.avif': 'image', '.bmp': 'image',
+  // §41 動画
+  '.mp4': 'video', '.webm': 'video', '.mkv': 'video', '.mov': 'video', '.avi': 'video',
 };
 
 // Content-Type マッピング
@@ -46,6 +48,9 @@ const CONTENT_TYPES = {
   '.webp': 'image/webp',
   '.avif': 'image/avif',
   '.bmp': 'image/bmp',
+  // §41 動画（Express sendFile が Range 対応済みのためストリーミングも機能する）
+  '.mp4': 'video/mp4', '.webm': 'video/webm', '.mkv': 'video/x-matroska',
+  '.mov': 'video/quicktime', '.avi': 'video/x-msvideo',
 };
 
 // §35.3 mkb ヘッダ抽出（パース失敗時はファイル名にフォールバック）
