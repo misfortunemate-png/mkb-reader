@@ -789,6 +789,8 @@ export default function App() {
               <RemoteLibraryView
                 items={remoteLibrary.items}
                 fetching={remoteLibrary.fetching}
+                error={remoteLibrary.error}
+                onRescan={remoteLibrary.rescan}
                 onOpenItem={handleOpenRemoteItem}
               />
             ) : (

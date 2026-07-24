@@ -8,6 +8,7 @@ export function useRemoteLibrary() {
   const [items, setItems] = useState([]);
   const [fetching, setFetching] = useState(false);
   const [connectedAt, setConnectedAt] = useState(null);
+  const [error, setError] = useState(null); // C-2: エラー状態
 
   async function checkHealthz() {
     try {
@@ -27,15 +28,25 @@ export function useRemoteLibrary() {
 
   async function fetchIndex(rescan = false) {
     setFetching(true);
+    setError(null); // C-2: 前回エラーをクリア
     try {
       const url = rescan ? '/api/library/index?rescan=1' : '/api/library/index';
-      const res = await fetch(url, { cache: 'no-store' });
+      console.log('[useRemoteLibrary] fetchIndex start:', url); // C-3
+      // C-1: タイムアウト 15000ms（healthz の 3000ms より長く）
+      const res = await fetch(url, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(15000),
+      });
+      console.log('[useRemoteLibrary] fetchIndex res.status:', res.status); // C-3
       if (!res.ok) throw new Error(`index: ${res.status}`);
       const data = await res.json();
+      console.log('[useRemoteLibrary] fetchIndex JSON parsed:', (data.files || []).length, 'items'); // C-3
       setItems(data.files || []);
       setConnectedAt(Date.now());
+      console.log('[useRemoteLibrary] fetchIndex setItems done'); // C-3
     } catch (e) {
       console.warn('useRemoteLibrary fetchIndex:', e);
+      setError(e.message || String(e)); // C-2
     } finally {
       setFetching(false);
     }
@@ -76,6 +87,7 @@ export function useRemoteLibrary() {
     items,
     fetching,
     connectedAt,
+    error,    // C-2
     rescan,
     putFile,
     fetchFile,

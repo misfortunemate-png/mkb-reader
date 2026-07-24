@@ -30,7 +30,7 @@ const SORT_OPTIONS = [
   { key: 'kind', label: '種別' },
 ];
 
-export default function RemoteLibraryView({ items, fetching, onOpenItem }) {
+export default function RemoteLibraryView({ items, fetching, error, onRescan, onOpenItem }) {
   const [sortBy, setSortBy] = useState('mtime');
   const [sortDir, setSortDir] = useState('desc');
   const [filterText, setFilterText] = useState('');
@@ -65,6 +65,21 @@ export default function RemoteLibraryView({ items, fetching, onOpenItem }) {
 
   if (fetching && items.length === 0) {
     return <p className="bookshelf-empty">書庫を読み込み中…</p>;
+  }
+
+  // C-2: エラー時はメッセージ＋再試行ボタンを表示
+  if (!fetching && items.length === 0 && error) {
+    return (
+      <div className="bookshelf-empty">
+        <p>書庫の読み込みに失敗しました</p>
+        <p className="hint">{error}</p>
+        {onRescan && (
+          <button type="button" className="sort-btn" style={{ marginTop: '1rem' }} onClick={onRescan}>
+            再試行
+          </button>
+        )}
+      </div>
+    );
   }
 
   if (!fetching && items.length === 0) {
