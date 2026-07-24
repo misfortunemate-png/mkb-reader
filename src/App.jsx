@@ -26,7 +26,7 @@ import ImageInserter from './components/ImageInserter.jsx';
 import ExportDialog from './components/ExportDialog.jsx';
 import ContextMenu from './components/ContextMenu.jsx';
 import Toast from './components/Toast.jsx';
-import { MenuIcon, ArrowLeftIcon, BookmarkIcon, PenIcon, DownloadIcon, SettingsIcon } from './components/Icons.jsx';
+import { MenuIcon, ArrowLeftIcon, BookmarkIcon, PenIcon, DownloadIcon, SettingsIcon, SpreadIcon } from './components/Icons.jsx';
 import { useRewrite } from './hooks/useRewrite.js';
 import { useMkbLoader } from './hooks/useMkbLoader.js';
 import { useRemoteLibrary } from './hooks/useRemoteLibrary.js';
@@ -646,6 +646,16 @@ export default function App() {
     }
   }
 
+  // §40 見開きモード（localStorage で永続化、既定 false）
+  const [spreadMode, setSpreadMode] = useState(() => localStorage.getItem('image-spread') === 'true');
+  function handleToggleSpread() {
+    setSpreadMode((v) => {
+      const next = !v;
+      localStorage.setItem('image-spread', String(next));
+      return next;
+    });
+  }
+
   // §18 取込フロー用: ChatImporter に渡す自動ロード URL
   const [chatImportUrl, setChatImportUrl] = useState(null);
 
@@ -1023,6 +1033,18 @@ export default function App() {
             <PenIcon />
           </button>
         )}
+        {/* §40 見開きトグル（images 型のときのみ表示） */}
+        {content.type === 'images' && (
+          <button
+            type="button"
+            className={`icon-btn ${spreadMode ? 'active' : ''}`}
+            onClick={handleToggleSpread}
+            aria-label="見開き表示"
+            title="見開き表示"
+          >
+            <SpreadIcon />
+          </button>
+        )}
         {/* §16 エクスポート（mkb/vertical で activeEntry あり） */}
         {(isMkb || isVertical) && activeEntry && (
           <button
@@ -1080,7 +1102,7 @@ export default function App() {
         <JsonRenderer content={content.content} name={content.name} />
       )}
       {content.type === 'images' && (
-        <ImageViewer images={content.images} swipeDirection={settings.swipeDirection} />
+        <ImageViewer images={content.images} swipeDirection={settings.swipeDirection} spreadMode={spreadMode} />
       )}
       {/* §32: PDF は iframe で表示 */}
       {content.type === 'pdf' && (

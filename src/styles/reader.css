@@ -378,6 +378,7 @@ button {
   flex-shrink: 0;
 }
 .icon-btn:hover { background: var(--color-code-bg); }
+.icon-btn.active { color: var(--color-accent); }
 
 /* チャプターナビ（仕様書 §3） */
 .chapter-nav {
@@ -966,6 +967,26 @@ button {
   transition: transform 100ms ease-out;
   -webkit-user-drag: none;
 }
+/* §40 見開きレイアウト */
+.image-frame-spread {
+  flex-direction: row;
+  align-items: stretch;
+}
+.image-spread-half {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  height: 100%;
+}
+.image-frame-spread .image-page {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
 .image-empty {
   height: calc(100dvh - var(--header-h));
   display: flex;

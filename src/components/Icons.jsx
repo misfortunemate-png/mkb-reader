@@ -59,6 +59,16 @@ export function DownloadIcon() {
   );
 }
 
+// §40 見開きトグル（四角2枚横並び）
+export function SpreadIcon() {
+  return (
+    <svg {...BASE}>
+      <rect x="2" y="4" width="9" height="16" rx="1" />
+      <rect x="13" y="4" width="9" height="16" rx="1" />
+    </svg>
+  );
+}
+
 export function SettingsIcon() {
   return (
     <svg {...BASE}>

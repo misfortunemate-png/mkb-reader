@@ -1,16 +1,9 @@
-// 何を: 1ページ1画像の画像ビューア（CBZ / 画像のみ ZIP / 画像複数選択 / 単体画像）
-// なぜ: 仕様書 Phase 3a §11
-//
-// - 画像は 100vw × 100vh の枠内に object-fit: contain で配置
-// - タップ: 右半分→次、左半分→前（インタラクティブ要素は素通し）
-// - スワイプ: §7 設定（horizontal / vertical）に従う
-// - キーボード: ←→ で前後
-// - ピンチズーム: 二本指 / ダブルタップで等倍/フィット切替
-// - ズーム中はスワイプ無効化
+// 何を: 1ページ1画像 / 見開き2画像ビューア（CBZ / 画像のみ ZIP / 画像複数選択 / 単体画像）
+// なぜ: 仕様書 Phase 3a §11 + §40 見開き表示
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export default function ImageViewer({ images, swipeDirection = 'horizontal' }) {
+export default function ImageViewer({ images, swipeDirection = 'horizontal', spreadMode = false }) {
   const [page, setPage] = useState(0);
   const [active, setActive] = useState(true);
   // ズーム関連: scale と translate（CSS transform）
@@ -20,8 +13,28 @@ export default function ImageViewer({ images, swipeDirection = 'horizontal' }) {
   const frameRef = useRef(null);
 
   const total = images.length;
-  const next = useCallback(() => setPage((p) => Math.min(total - 1, p + 1)), [total]);
-  const prev = useCallback(() => setPage((p) => Math.max(0, p - 1)), []);
+
+  // §40: spread モード ON 時はページを偶数にスナップ（奇数ページで ON にした場合の補正）
+  useEffect(() => {
+    if (spreadMode) {
+      setPage((p) => (p % 2 === 0 ? p : p - 1));
+    }
+  }, [spreadMode]);
+
+  const next = useCallback(() => {
+    if (spreadMode) {
+      // §40: 最終スプレッド開始ページ = Math.floor((total-1)/2)*2
+      const lastSP = Math.floor((total - 1) / 2) * 2;
+      setPage((p) => Math.min(lastSP, p + 2));
+    } else {
+      setPage((p) => Math.min(total - 1, p + 1));
+    }
+  }, [total, spreadMode]);
+
+  const prev = useCallback(() => {
+    const step = spreadMode ? 2 : 1;
+    setPage((p) => Math.max(0, p - step));
+  }, [spreadMode]);
 
   // ページ変更時にズームとパンをリセット
   useEffect(() => {
@@ -66,10 +79,8 @@ export default function ImageViewer({ images, swipeDirection = 'horizontal' }) {
       } else if (e.touches.length === 1) {
         const t = e.touches[0];
         startX = t.clientX; startY = t.clientY;
-        // ダブルタップ判定
         const now = Date.now();
         if (now - lastTap < 280) {
-          // toggle 等倍/フィット
           if (scale > 1.05) { setScale(1); setTx(0); setTy(0); }
           else { setScale(2); }
         }
@@ -85,7 +96,6 @@ export default function ImageViewer({ images, swipeDirection = 'horizontal' }) {
     }
     function onEnd(e) {
       if (e.touches.length > 0) return;
-      // ズーム中はスワイプ無効
       if (scale > 1.05) { startX = startY = startDist = null; return; }
       if (startX == null) return;
       const t = e.changedTouches[0];
@@ -112,7 +122,7 @@ export default function ImageViewer({ images, swipeDirection = 'horizontal' }) {
   }, [scale, swipeDirection, next, prev]);
 
   function handleFrameClick(e) {
-    if (scale > 1.05) return; // ズーム中は無効
+    if (scale > 1.05) return;
     const interactive = e.target.closest('a, button, input, textarea, select, label');
     if (interactive) return;
     const rect = frameRef.current?.getBoundingClientRect();
@@ -124,15 +134,44 @@ export default function ImageViewer({ images, swipeDirection = 'horizontal' }) {
   if (!images || images.length === 0) {
     return <div className="image-empty">画像がありません</div>;
   }
-  const cur = images[page];
 
+  // §40 見開きレイアウト
+  if (spreadMode) {
+    const leftImg = images[page];
+    const rightImg = images[page + 1]; // undefined のとき最終単独ページ（右寄せ）
+    const imgStyle = { transform: `translate(${tx}px, ${ty}px) scale(${scale})` };
+    // インジケーター: "1-2 / N" 形式。単独ページは "5 / N"
+    const indicator = rightImg
+      ? `${page + 1}-${page + 2} / ${total}`
+      : `${page + 1} / ${total}`;
+    return (
+      <>
+        <div ref={frameRef} className="image-frame image-frame-spread" onClick={handleFrameClick}>
+          {/* 左ページ（偶数インデックス）: 2枚あるときのみ表示 */}
+          <div className="image-spread-half">
+            {rightImg && leftImg && (
+              <img src={leftImg.url} alt={leftImg.name || ''} className="image-page" style={imgStyle} draggable="false" />
+            )}
+          </div>
+          {/* 右ページ（奇数インデックス）: 単独ページも右に置く */}
+          <div className="image-spread-half">
+            {rightImg ? (
+              <img src={rightImg.url} alt={rightImg.name || ''} className="image-page" style={imgStyle} draggable="false" />
+            ) : leftImg ? (
+              <img src={leftImg.url} alt={leftImg.name || ''} className="image-page" style={imgStyle} draggable="false" />
+            ) : null}
+          </div>
+        </div>
+        <div className={`page-indicator ${active ? '' : 'faded'}`}>{indicator}</div>
+      </>
+    );
+  }
+
+  // 単ページモード（既存）
+  const cur = images[page];
   return (
     <>
-      <div
-        ref={frameRef}
-        className="image-frame"
-        onClick={handleFrameClick}
-      >
+      <div ref={frameRef} className="image-frame" onClick={handleFrameClick}>
         <img
           src={cur.url}
           alt={cur.name || ''}
