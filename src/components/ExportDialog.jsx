@@ -3,7 +3,7 @@
 //       §36.3: 書庫が接続中の場合「書庫へ保存」ボタンを追加
 
 import { useEffect, useState } from 'react';
-import { buildMkbBuffer, exportMkb } from '../hooks/useExport.js';
+import { buildMkbBuffer, exportMkb, exportMd } from '../hooks/useExport.js';
 
 export default function ExportDialog({
   open,
@@ -35,6 +35,21 @@ export default function ExportDialog({
     setError(null);
     try {
       await exportMkb({ bookEntry, rewriteRules, title: title || undefined, author, applyRewrite: applyRw });
+      onClose?.();
+    } catch (e) {
+      console.error(e);
+      setError(e.message || String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function runMd() {
+    if (!bookEntry) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await exportMd({ bookEntry, rewriteRules, title: title || undefined, applyRewrite: applyRw });
       onClose?.();
     } catch (e) {
       console.error(e);
@@ -107,6 +122,14 @@ export default function ExportDialog({
                 {busy ? '処理中…' : '書庫へ保存'}
               </button>
             )}
+            <button
+              type="button"
+              className="settings-btn"
+              onClick={runMd}
+              disabled={busy || !bookEntry}
+            >
+              {busy ? '書き出し中…' : '↓ MD'}
+            </button>
             <button
               type="button"
               className="settings-btn active"

@@ -158,6 +158,75 @@ export async function buildMkbBuffer(opts) {
   return _buildMkbCore(opts);
 }
 
+// 何を: BookEntry → 単一 .md ファイルをダウンロード（§42）
+// なぜ: AI 読み込みや他ツールへの受け渡しには MKB（ZIP）より MD が素直
+//       insertedAssets / importedAssets は MD に埋め込めないため除外する
+export async function exportMd({
+  bookEntry,
+  rewriteRules,
+  title,
+  applyRewrite: doApply = true,
+}) {
+  if (!bookEntry) throw new Error('bookEntry is required');
+
+  const ft = bookEntry.fileType || 'mkb';
+  const chapters = [];
+  let originalMeta = {};
+
+  if (ft === 'mkb' || ft === 'zip' || ft === 'cbz') {
+    const zip = await JSZip.loadAsync(bookEntry.fileData);
+    const yamlEntry = zip.file(/^markbook\.ya?ml$/i)[0];
+    if (yamlEntry) {
+      try {
+        const text = await yamlEntry.async('string');
+        originalMeta = yaml.load(text) || {};
+      } catch { /* ignore */ }
+    }
+    const indexEntry = zip.file(/^index\.md$/i)[0];
+    if (indexEntry) {
+      const content = await indexEntry.async('string');
+      chapters.push({ id: 'index', content, order: 0 });
+    }
+    const pageEntries = zip.file(/^pages\/[^/]+\.md$/i);
+    for (const pe of pageEntries) {
+      const content = await pe.async('string');
+      const id = pe.name.replace(/^pages\//, '').replace(/\.md$/i, '');
+      chapters.push({ id, content, order: chapters.length });
+    }
+  } else if (ft === 'md') {
+    const text = new TextDecoder().decode(bookEntry.fileData);
+    chapters.push({ id: 'index', content: text, order: 0 });
+  } else if (ft === 'txt') {
+    const text = new TextDecoder().decode(bookEntry.fileData);
+    chapters.push({ id: 'index', content: text, order: 0 });
+  } else {
+    throw new Error(`未対応の fileType: ${ft}`);
+  }
+
+  if (doApply && rewriteRules) {
+    const rulesForMd = {
+      ...rewriteRules,
+      insertedAssets: [],
+      importedAssets: [],
+    };
+    for (const c of chapters) {
+      c.content = applyRewrite(c.content, rulesForMd, c.id, { highlight: false, assetUrlOf: null });
+    }
+  }
+
+  // index を先頭にし、残りを order 順で結合
+  const sorted = [
+    ...chapters.filter((c) => c.id === 'index'),
+    ...chapters.filter((c) => c.id !== 'index').sort((a, b) => a.order - b.order),
+  ];
+  const combined = sorted.map((c) => c.content).join('\n\n---\n\n');
+
+  const finalTitle = title || originalMeta.title || bookEntry.title || 'untitled';
+  const filename = `${safeName(finalTitle)}.md`;
+  downloadBlob(new Blob([combined], { type: 'text/markdown; charset=utf-8' }), filename);
+  return { size: combined.length, filename };
+}
+
 // 何を: BookEntry → 読み替え適用済みの mkb (ZIP) を生成し、ダウンロード
 // なぜ: 仕様書 §16 — 読み替え結果を「新しい原本」として書き出す。
 export async function exportMkb(opts) {
