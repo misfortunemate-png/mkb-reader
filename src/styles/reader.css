@@ -2409,3 +2409,89 @@ button {
 /* §41 動画プレイヤー */
 .video-frame { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: #000; }
 .video-player { max-width: 100%; max-height: 100%; width: auto; height: auto; }
+
+/* §43 書庫全文検索 */
+.library-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.library-search-mkb {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+mark {
+  background: var(--accent-dim, #ffd54f40);
+  color: inherit;
+  border-radius: 2px;
+}
+.library-search-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+  flex-wrap: wrap;
+}
+.search-clear-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  text-decoration: underline;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.search-clear-btn:hover { color: var(--color-text); }
+.search-results-list { list-style: none; margin: 0; padding: 0; }
+.search-result-card { border-bottom: 1px solid var(--color-border); }
+.search-result-header {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 1rem;
+}
+.search-result-header:hover { background: var(--color-code-bg); }
+.search-result-detail {
+  padding: 0.5rem 0.75rem;
+  background: var(--color-code-bg);
+}
+.search-match-item { margin-bottom: 0.75rem; }
+.search-match-meta {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 0.2rem;
+}
+.search-context {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0.4rem 0.5rem;
+  background: var(--color-bg);
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+.search-match-line {
+  background: var(--accent-dim, #ffd54f40);
+  border-radius: 2px;
+}

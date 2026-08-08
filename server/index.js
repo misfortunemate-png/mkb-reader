@@ -169,6 +169,85 @@ app.get('/api/library/file', async (req, res) => {
   res.sendFile(safe);
 });
 
+// GET /api/library/search?q=<keyword>&mkb=<0|1> — §43 書庫全文検索（都度読み・キャッシュなし）
+app.get('/api/library/search', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q is required' });
+  if (!fs.existsSync(LIBRARY_ROOT)) {
+    return res.json({ query: q, totalFiles: 0, searchedFiles: 0, results: [] });
+  }
+
+  const includeMkb = req.query.mkb === '1';
+  const SEARCH_EXTS = new Set(['.md', '.markdown', '.txt']);
+  if (includeMkb) SEARCH_EXTS.add('.mkb');
+  const qLower = q.toLowerCase();
+  let totalFiles = 0;
+  let searchedFiles = 0;
+  const results = [];
+
+  async function walkSearch(dir, base) {
+    let names;
+    try { names = await fs.promises.readdir(dir); } catch { return; }
+    for (const name of names) {
+      const rel = (base ? `${base}/${name}` : name).replace(/\\/g, '/');
+      const abs = path.join(dir, name);
+      let stat;
+      try { stat = await fs.promises.stat(abs); } catch { continue; }
+      if (stat.isDirectory()) { await walkSearch(abs, rel); continue; }
+      totalFiles++;
+      const ext = path.extname(name).toLowerCase();
+      if (!SEARCH_EXTS.has(ext)) continue;
+      searchedFiles++;
+
+      let text = '';
+      try {
+        if (ext === '.mkb') {
+          const buf = await fs.promises.readFile(abs);
+          const zip = await JSZip.loadAsync(buf);
+          const parts = [];
+          const idxEntry = zip.file(/^index\.md$/i)[0];
+          if (idxEntry) parts.push(await idxEntry.async('string'));
+          const pageEntries = zip.file(/^pages\/[^/]+\.md$/i);
+          for (const pe of pageEntries) parts.push(await pe.async('string'));
+          text = parts.join('\n---\n');
+        } else {
+          text = await fs.promises.readFile(abs, 'utf-8');
+        }
+      } catch { continue; }
+
+      const lines = text.split('\n');
+      let totalMatches = 0;
+      const matches = [];
+      for (let i = 0; i < lines.length; i++) {
+        if (!lines[i].toLowerCase().includes(qLower)) continue;
+        totalMatches++;
+        if (matches.length < 10) {
+          const start = Math.max(0, i - 2);
+          const end = Math.min(lines.length - 1, i + 2);
+          matches.push({
+            lineNumber: i + 1,
+            line: lines[i],
+            context: lines.slice(start, end + 1),
+          });
+        }
+      }
+      if (totalMatches > 0) {
+        results.push({
+          path: rel,
+          title: path.basename(rel, path.extname(rel)),
+          kind: KIND_MAP[path.extname(rel).toLowerCase()] || 'other',
+          totalMatches,
+          matches,
+        });
+      }
+    }
+  }
+
+  await walkSearch(LIBRARY_ROOT, '');
+  results.sort((a, b) => b.totalMatches - a.totalMatches);
+  res.json({ query: q, totalFiles, searchedFiles, results });
+});
+
 // PUT /api/library/file?path=<相対パス> — ファイル保存（S-2: rawParser をここでのみ適用）
 app.put('/api/library/file', rawParser, async (req, res) => {
   const safe = resolveSafe(LIBRARY_ROOT, req.query.path || '');

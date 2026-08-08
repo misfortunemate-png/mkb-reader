@@ -792,6 +792,11 @@ export default function App() {
                 error={remoteLibrary.error}
                 onRescan={remoteLibrary.rescan}
                 onOpenItem={handleOpenRemoteItem}
+                searchLibrary={remoteLibrary.searchLibrary}
+                searchResults={remoteLibrary.searchResults}
+                searching={remoteLibrary.searching}
+                searchError={remoteLibrary.searchError}
+                onClearSearch={remoteLibrary.clearSearch}
               />
             ) : (
               <div className="bookshelf-empty">

@@ -9,6 +9,10 @@ export function useRemoteLibrary() {
   const [fetching, setFetching] = useState(false);
   const [connectedAt, setConnectedAt] = useState(null);
   const [error, setError] = useState(null); // C-2: エラー状態
+  // §43 全文検索
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(null);
 
   async function checkHealthz() {
     try {
@@ -81,6 +85,31 @@ export function useRemoteLibrary() {
     return res.blob();
   }
 
+  // §43 全文検索
+  async function searchLibrary(query, includeMkb = false) {
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const url = `/api/library/search?q=${encodeURIComponent(query)}&mkb=${includeMkb ? '1' : '0'}`;
+      const res = await fetch(url, {
+        cache: 'no-store',
+        signal: AbortSignal.timeout(60000), // MKB展開を含むため長めに
+      });
+      if (!res.ok) throw new Error(`search: ${res.status}`);
+      const data = await res.json();
+      setSearchResults(data);
+    } catch (e) {
+      setSearchError(e.message || String(e));
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function clearSearch() {
+    setSearchResults(null);
+    setSearchError(null);
+  }
+
   return {
     connected,
     version,
@@ -91,5 +120,10 @@ export function useRemoteLibrary() {
     rescan,
     putFile,
     fetchFile,
+    searchLibrary,
+    searchResults,
+    searching,
+    searchError,
+    clearSearch,
   };
 }
