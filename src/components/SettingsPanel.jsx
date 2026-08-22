@@ -96,6 +96,9 @@ export default function SettingsPanel({
   const [charsDetailOpen, setCharsDetailOpen] = useState(false);
   // §24 タップゾーン詳細スライダー折りたたみ
   const [tapZoneDetailOpen, setTapZoneDetailOpen] = useState(false);
+  // S-1: 書庫クラウド接続設定
+  const [cloudUrl, setCloudUrl] = useState(() => { try { return localStorage.getItem('mkb_cloud_url') || ''; } catch { return ''; } });
+  const [cloudToken, setCloudToken] = useState(() => { try { return localStorage.getItem('mkb_cloud_token') || ''; } catch { return ''; } });
 
   return (
     <>
@@ -408,6 +411,38 @@ export default function SettingsPanel({
               書庫サーバが起動していないか、GitHub Pages版では使用できません
             </p>
           )}
+          {/* S-1: 書庫サーバーURL・トークン設定 */}
+          <div style={{ marginTop: '0.8rem' }}>
+            <p className="rw-hint" style={{ marginBottom: '0.3rem' }}>書庫サーバーURL</p>
+            <input
+              type="text"
+              className="settings-text-input"
+              placeholder="https://example.pages.dev"
+              value={cloudUrl}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCloudUrl(v);
+                try { localStorage.setItem('mkb_cloud_url', v); } catch { /* ignore */ }
+              }}
+              style={{ width: '100%', boxSizing: 'border-box' }}
+            />
+          </div>
+          <div style={{ marginTop: '0.6rem' }}>
+            <p className="rw-hint" style={{ marginBottom: '0.3rem' }}>トークン</p>
+            <input
+              type="password"
+              className="settings-text-input"
+              placeholder="Bearer トークン"
+              value={cloudToken}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCloudToken(v);
+                try { localStorage.setItem('mkb_cloud_token', v); } catch { /* ignore */ }
+              }}
+              style={{ width: '100%', boxSizing: 'border-box' }}
+            />
+          </div>
+          <p className="rw-hint" style={{ marginTop: '0.5rem' }}>変更後はリロードが必要です</p>
         </Section>
 
         {/* データ管理 — 検証用。設計思想に反する操作（破壊的）なので最下部に配置 */}

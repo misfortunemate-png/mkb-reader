@@ -3,6 +3,18 @@
 import { useCallback, useEffect, useState } from 'react';
 
 export function useRemoteLibrary() {
+  // S-2: クラウド接続設定をlocalStorageから読み込む（リロード時に反映）
+  const baseUrl = (() => { try { return localStorage.getItem('mkb_cloud_url') || ''; } catch { return ''; } })();
+  const token = (() => { try { return localStorage.getItem('mkb_cloud_token') || ''; } catch { return ''; } })();
+
+  // S-2: 全fetchに baseUrl 付与・token がある場合は Authorization ヘッダを付与する共通関数
+  function libFetch(path, options = {}) {
+    const url = baseUrl + path;
+    const headers = { ...(options.headers || {}) };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    return fetch(url, { ...options, headers });
+  }
+
   const [connected, setConnected] = useState(false);
   const [version, setVersion] = useState(null);
   const [items, setItems] = useState([]);
@@ -16,7 +28,7 @@ export function useRemoteLibrary() {
 
   async function checkHealthz() {
     try {
-      const res = await fetch('/healthz', {
+      const res = await libFetch('/healthz', {
         signal: AbortSignal.timeout(3000),
         cache: 'no-store',
       });
@@ -37,7 +49,7 @@ export function useRemoteLibrary() {
       const url = rescan ? '/api/library/index?rescan=1' : '/api/library/index';
       console.log('[useRemoteLibrary] fetchIndex start:', url); // C-3
       // C-1: タイムアウト 15000ms（healthz の 3000ms より長く）
-      const res = await fetch(url, {
+      const res = await libFetch(url, {
         cache: 'no-store',
         signal: AbortSignal.timeout(15000),
       });
@@ -69,7 +81,7 @@ export function useRemoteLibrary() {
   // §36.3: ファイルを書庫へ PUT 保存
   async function putFile(relPath, body) {
     const url = `/api/library/file?path=${encodeURIComponent(relPath)}`;
-    const res = await fetch(url, { method: 'PUT', body, cache: 'no-store' });
+    const res = await libFetch(url, { method: 'PUT', body, cache: 'no-store' });
     if (!res.ok) {
       const msg = await res.json().then((d) => d.error).catch(() => res.statusText);
       throw new Error(msg || `PUT failed: ${res.status}`);
@@ -80,7 +92,7 @@ export function useRemoteLibrary() {
   // §36.2: ファイル実体を Blob で取得
   async function fetchFile(relPath) {
     const url = `/api/library/file?path=${encodeURIComponent(relPath)}`;
-    const res = await fetch(url, { cache: 'no-store' });
+    const res = await libFetch(url, { cache: 'no-store' });
     if (!res.ok) throw new Error(`file fetch: ${res.status}`);
     return res.blob();
   }
@@ -91,7 +103,7 @@ export function useRemoteLibrary() {
     setSearchError(null);
     try {
       const url = `/api/library/search?q=${encodeURIComponent(query)}&mkb=${includeMkb ? '1' : '0'}`;
-      const res = await fetch(url, {
+      const res = await libFetch(url, {
         cache: 'no-store',
         signal: AbortSignal.timeout(60000), // MKB展開を含むため長めに
       });
