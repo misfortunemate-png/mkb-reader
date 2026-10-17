@@ -14,7 +14,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || '8788', 10);
 const LIBRARY_ROOT = path.resolve(process.env.LIBRARY_ROOT || 'D:\\AI\\mkb-library\\public');
 const DIST_DIR = path.join(__dirname, '..', 'dist');
-const VERSION = '0.2.0';
+const VERSION = '0.3.0';
 
 // §35.3 索引スキーマ: 拡張子 → kind
 const KIND_MAP = {
