@@ -79,9 +79,17 @@ export function useRemoteLibrary() {
   const rescan = useCallback(() => fetchIndex(true), []);
 
   // §36.3: ファイルを書庫へ PUT 保存
+  // Content-Type を明示する: ArrayBuffer の本文は fetch が Content-Type を付けず、
+  //   サーバーの express.raw は Content-Type のない要求の本文を解析しない（→ 500）。
+  //   libFetch が付ける Authorization とは headers のマージで併存する
   async function putFile(relPath, body) {
     const url = `/api/library/file?path=${encodeURIComponent(relPath)}`;
-    const res = await libFetch(url, { method: 'PUT', body, cache: 'no-store' });
+    const res = await libFetch(url, {
+      method: 'PUT',
+      body,
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/octet-stream' },
+    });
     if (!res.ok) {
       const msg = await res.json().then((d) => d.error).catch(() => res.statusText);
       throw new Error(msg || `PUT failed: ${res.status}`);
