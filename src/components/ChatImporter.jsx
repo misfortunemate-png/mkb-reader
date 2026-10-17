@@ -2,7 +2,7 @@
 // なぜ: 仕様書 Phase 3b §18 — チャットログを「読み替え可能な原本」に取り込む入口
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { parseConversationsJson, conversationToMkbData, conversationToBookEntry, mkbDataToZipBuffer, isReadableConversation } from '../utils/chatConverter.js';
+import { parseConversationsJson, conversationToMkbData, conversationToBookEntry, mkbDataToZipBuffer, isReadableConversation, toSafeFileName } from '../utils/chatConverter.js';
 
 function fmtDate(s) {
   if (!s) return '';
@@ -138,14 +138,14 @@ export default function ChatImporter({
         const conv = targets[0];
         const mkb = conversationToMkbData(conv, { branch: branchMode });
         const ab = await mkbDataToZipBuffer(mkb);
-        onRequestSaveToLibrary(ab, `${mkb.metadata.title}.mkb`);
+        onRequestSaveToLibrary(ab, `${toSafeFileName(mkb.metadata.title)}.mkb`);
       } else {
         setProgress({ done: 0, total: targets.length });
         for (let i = 0; i < targets.length; i++) {
           const conv = targets[i];
           const mkb = conversationToMkbData(conv, { branch: branchMode });
           const ab = await mkbDataToZipBuffer(mkb);
-          onRequestSaveToLibrary(ab, `${mkb.metadata.title}.mkb`);
+          onRequestSaveToLibrary(ab, `${toSafeFileName(mkb.metadata.title)}.mkb`);
           setProgress({ done: i + 1, total: targets.length });
           // 複数の場合: 各ファイルを逐次保存（ダイアログが都度出る。UI改善は将来工事）
           await new Promise((r) => setTimeout(r, 0));

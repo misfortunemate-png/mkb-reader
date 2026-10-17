@@ -371,6 +371,24 @@ function titleOf(conv) {
   return `Untitled-${String(conv.uuid).slice(0, 8)}`;
 }
 
+// 何を: 題名からファイル名（拡張子なし）を作る
+// なぜ: 書庫へ保存の既定の保存先は「題名.mkb」。Windows では \ / : * ? " < > | が使えず、
+//   特に「:」は代替データストリームと解釈されて 0 バイトの実体ができる（mkb-reader#2）。
+//   題名の読みやすさを保つため、禁止文字は消さずに全角の同じ形へ置き換える。
+//   「/」も置き換えて、題名がフォルダの区切りにならないようにする
+const FILENAME_CHAR_MAP = {
+  '\\': '＼', '/': '／', ':': '：', '*': '＊', '?': '？', '"': '＂', '<': '＜', '>': '＞', '|': '｜',
+};
+export function toSafeFileName(title) {
+  const replaced = Array.from(String(title ?? ''))
+    .filter((ch) => ch.charCodeAt(0) > 0x1f) // 制御文字（U+0000〜U+001F）を取り除く
+    .map((ch) => FILENAME_CHAR_MAP[ch] || ch)
+    .join('');
+  // 末尾の空白・ピリオドは Windows が黙って落とすので、先に取り除いて名前を確定させる
+  const trimmed = replaced.replace(/[\s.]+$/u, '');
+  return trimmed || 'untitled';
+}
+
 // 何を: 会話のツリー構造から「現在表示されている分岐」だけを抽出する
 // なぜ: Claude.ai は編集・再生成で枝を作り、古い枝も chat_messages[] に残す。
 //   そのまま並べると編集前後の両方が出てしまうので、active leaf からルートまでを
