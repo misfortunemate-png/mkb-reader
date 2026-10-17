@@ -1,4 +1,4 @@
-// 何を: Claude.ai conversations.json を読み込み、会話を選択して mkb に変換する画面
+// 何を: Claude.ai または ChatGPT の conversations.json を読み込み、会話を選択して mkb に変換する画面
 // なぜ: 仕様書 Phase 3b §18 — チャットログを「読み替え可能な原本」に取り込む入口
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -225,7 +225,7 @@ export default function ChatImporter({
 
       {!conversations && !loading && (
         <div className="bookshelf-empty">
-          <p>Claude.ai の <code>conversations.json</code> を選択してください</p>
+          <p>Claude.ai または ChatGPT の <code>conversations.json</code> を選択してください</p>
           <p className="hint">Settings → Privacy → Export Data で取得した ZIP に同梱されています</p>
           <button type="button" className="file-btn" onClick={handlePickClick}>
             JSON を選択
