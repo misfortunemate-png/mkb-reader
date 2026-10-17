@@ -1,5 +1,7 @@
-// 何を: Claude.ai conversations.json → MkbData / mkb ZIP バイナリ への変換
+// 何を: Claude.ai / ChatGPT conversations.json → MkbData / mkb ZIP バイナリ への変換
 // なぜ: 仕様書 Phase 3b §18 — チャットログを「読み替え可能な原本」として取り込む。
+//   §44: ChatGPT 形式は読込の段階で Claude.ai 形式の会話オブジェクトに正規化し、
+//   以降（一覧・空会話の除外・分岐の選択・MD組立・保存）は Claude.ai と同じ経路を通す
 //
 // 設計思想（§0）への準拠:
 //   - 話者名は **human** / **assistant** という Bold MD として埋め込む
@@ -61,6 +63,189 @@ export function isReadableConversation(c) {
   return false;
 }
 
+// ───── ChatGPT 形式の正規化（§44） ─────
+
+// 何を: 会話オブジェクトが ChatGPT 形式かを判定する
+// なぜ: ChatGPT のエクスポートは発言を mapping（ノード id → ノード）の木で持ち、
+//   Claude.ai 形式は持たない。これだけで自動判別できるので、利用者に形式を選ばせない
+function isChatGptConversation(c) {
+  return !!c && typeof c.mapping === 'object' && c.mapping !== null && !Array.isArray(c.mapping);
+}
+
+// 何を: UNIX 秒（小数あり）→ ISO 8601 文字列。数値でなければ null
+// なぜ: Claude.ai 形式の created_at / updated_at は ISO 文字列なので、表示・保存側をそのまま使うため
+function unixSecToIso(sec) {
+  if (typeof sec !== 'number' || !Number.isFinite(sec)) return null;
+  const d = new Date(sec * 1000);
+  return isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+// 何を: content.parts のうち文字列だけを返す
+// なぜ: multimodal_text の parts には画像ポインタ等のオブジェクトが混じる。画像は取り込まない
+function stringParts(content) {
+  return Array.isArray(content?.parts) ? content.parts.filter((p) => typeof p === 'string') : [];
+}
+
+// 何を: content から取り出せる文字列（content_type 以外の文字列フィールド＋文字列の parts）を集める
+// なぜ: 道具の出力や未知の content_type は文字列の置き場が型ごとに違う（text / result / url …）。
+//   型ごとの決め打ちにせず拾えるだけ拾い、情報を黙って落とさない
+function contentStrings(content) {
+  const out = [];
+  if (content && typeof content === 'object') {
+    for (const [k, v] of Object.entries(content)) {
+      if (k === 'content_type') continue;
+      if (typeof v === 'string' && v.trim()) out.push(v.trim());
+    }
+  }
+  for (const p of stringParts(content)) if (p.trim()) out.push(p.trim());
+  return out.join('\n\n');
+}
+
+// 何を: thoughts / reasoning_recap の本文を作る
+// なぜ: thoughts は { summary, content } の配列、reasoning_recap は content に「○秒間の思考」等の文字列
+function thoughtsText(content) {
+  if (content.content_type === 'reasoning_recap') {
+    return typeof content.content === 'string' ? content.content.trim() : '';
+  }
+  const list = Array.isArray(content.thoughts) ? content.thoughts : [];
+  return list
+    .map((t) => {
+      const lines = [];
+      if (typeof t?.summary === 'string' && t.summary.trim()) lines.push(`**${t.summary.trim()}**`);
+      if (typeof t?.content === 'string' && t.content.trim()) lines.push(t.content.trim());
+      return lines.join('\n\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+// 何を: 本文をコードフェンスで囲む。本文中のバッククォート連続より長いフェンスを使う
+// なぜ: コード中に ``` があってもフェンスが途中で閉じないようにする
+function codeFence(code, language) {
+  const longest = Math.max(0, ...(String(code).match(/`+/g) || []).map((s) => s.length));
+  const fence = '`'.repeat(Math.max(3, longest + 1));
+  return `${fence}${language || ''}\n${code}\n${fence}`;
+}
+
+const CHATGPT_THINKING_TYPES = new Set(['thoughts', 'reasoning_recap']);
+
+// 何を: ChatGPT の 1 メッセージ → Claude.ai 形式の content[] ブロック
+// なぜ: 既存の messageBodyToMd が text / thinking / tool_result を描き分けるので、
+//   その形に写せば思考は claude-thinking、道具は claude-tool の折りたたみにそのまま乗る。
+//   道具の見出しには content_type（あれば道具名も）を出す → tool_result の tool_use_id 欄に入れる
+function chatGptMessageToBlocks(message) {
+  const content = message.content && typeof message.content === 'object' ? message.content : {};
+  const ct = String(content.content_type || 'unknown');
+  const role = String(message.author?.role || '');
+
+  if (CHATGPT_THINKING_TYPES.has(ct)) {
+    const t = thoughtsText(content);
+    return t ? [{ type: 'thinking', thinking: t }] : [];
+  }
+  if (role !== 'tool') {
+    if (ct === 'text' || ct === 'multimodal_text') {
+      const t = stringParts(content).join('\n').trim();
+      return t ? [{ type: 'text', text: t }] : [];
+    }
+    if (ct === 'code') {
+      const code = typeof content.text === 'string' ? content.text : '';
+      return code.trim() ? [{ type: 'text', text: codeFence(code, content.language) }] : [];
+    }
+  }
+  // role が tool のもの・execution_output 等の道具出力・未知の型 → 道具の折りたたみ
+  const toolName = message.author?.name ? String(message.author.name) : '';
+  return [{
+    type: 'tool_result',
+    tool_use_id: toolName ? `${ct}: ${toolName}` : ct,
+    content: contentStrings(content),
+  }];
+}
+
+// 何を: 表示しないノードかを判定する
+// なぜ: ChatGPT の mapping には木の根（message: null）・不可視の system・カスタム指示
+//   （user_editable_context）など、画面に出ないノードが混じる
+function isExcludedChatGptNode(node) {
+  const m = node?.message;
+  if (!m || typeof m !== 'object') return true;
+  if (m.metadata?.is_visually_hidden_from_conversation) return true;
+  if (m.content?.content_type === 'user_editable_context') return true;
+  if (m.author?.role === 'system' && !contentStrings(m.content)) return true;
+  return false;
+}
+
+const CHATGPT_ROLE_TO_SENDER = { user: 'human', assistant: 'assistant', tool: 'assistant' };
+
+// 何を: mapping のノード id を、親が子より先に来る順（根からの深さ優先・children の順）に並べる
+// なぜ: mapping はオブジェクトで順序の保証がない。「全分岐」表示と分岐選択のフォールバックは
+//   配列順に依存するので、木の順に並べ直す。辿れないノード（循環等）も末尾に残す
+function orderChatGptNodeIds(mapping) {
+  const ids = Object.keys(mapping);
+  const seen = new Set();
+  const order = [];
+  const roots = ids.filter((id) => {
+    const p = mapping[id]?.parent;
+    return !p || !mapping[p];
+  });
+  const stack = [...roots].reverse();
+  while (stack.length) {
+    const id = stack.pop();
+    if (seen.has(id) || !mapping[id]) continue;
+    seen.add(id);
+    order.push(id);
+    const children = Array.isArray(mapping[id].children) ? mapping[id].children : [];
+    for (let i = children.length - 1; i >= 0; i--) stack.push(String(children[i]));
+  }
+  for (const id of ids) if (!seen.has(id)) order.push(id);
+  return order;
+}
+
+// 何を: ChatGPT 形式の 1 会話 → Claude.ai 形式の会話オブジェクト
+// なぜ: §44 方式 — 読込段階で正規化し、以降は Claude.ai と同じ処理経路を通す
+function normalizeChatGptConversation(c) {
+  const mapping = c.mapping;
+  const excluded = new Set(Object.keys(mapping).filter((id) => isExcludedChatGptNode(mapping[id])));
+
+  // 何を: 除外されていない最も近い祖先（自身を含む）を返す
+  // なぜ: 除外ノードを親に持つ発言を、表示される祖先につなぎ直して木を保つため
+  const keptAncestor = (startId) => {
+    const guard = new Set();
+    let cur = startId ? String(startId) : null;
+    while (cur && mapping[cur] && !guard.has(cur)) {
+      guard.add(cur);
+      if (!excluded.has(cur)) return cur;
+      cur = mapping[cur].parent ? String(mapping[cur].parent) : null;
+    }
+    return null;
+  };
+
+  const chat_messages = [];
+  for (const id of orderChatGptNodeIds(mapping)) {
+    if (excluded.has(id)) continue;
+    const m = mapping[id].message;
+    const role = String(m.author?.role || '');
+    const msg = {
+      uuid: id, // mapping のキー（= ノード id）。parent の参照先と同じ値に揃える
+      parent_message_uuid: keptAncestor(mapping[id].parent),
+      sender: CHATGPT_ROLE_TO_SENDER[role] || role || 'unknown',
+      content: chatGptMessageToBlocks(m),
+    };
+    const created = unixSecToIso(m.create_time);
+    if (created) msg.created_at = created;
+    chat_messages.push(msg);
+  }
+
+  const conv = {
+    uuid: c.conversation_id || c.id,
+    name: c.title,
+    created_at: unixSecToIso(c.create_time),
+    updated_at: unixSecToIso(c.update_time),
+    current_leaf_message_uuid: keptAncestor(c.current_node),
+    chat_messages,
+  };
+  if (c.default_model_slug) conv.model = c.default_model_slug;
+  return conv;
+}
+
 // 何を: conversations.json の中身を寛容に取り出す
 // なぜ: トップレベルが配列でない（{ conversations: [...] } のような）変形にも対応。
 //   メモリ／プロジェクトなど「会話以外のレコード」を除外する責務はここではなく、
@@ -76,10 +261,10 @@ export function parseConversationsJson(text) {
   if (Array.isArray(data)) arr = data;
   else if (Array.isArray(data?.conversations)) arr = data.conversations;
   else if (Array.isArray(data?.data)) arr = data.data;
-  else throw new Error('Claude.ai の conversations.json 形式と認識できません');
+  else throw new Error('Claude.ai または ChatGPT の conversations.json 形式と認識できません');
 
-  // 必要最低限のフィールドを正規化
-  return arr.map((c) => ({
+  // 必要最低限のフィールドを正規化（ChatGPT 形式は先に Claude.ai 形式へ写す）
+  return arr.map((raw) => (isChatGptConversation(raw) ? normalizeChatGptConversation(raw) : raw)).map((c) => ({
     uuid: String(c.uuid || c.id || crypto.randomUUID()),
     name: String(c.name || c.title || ''),
     created_at: c.created_at || c.createdAt || null,
