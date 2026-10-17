@@ -1,0 +1,1214 @@
+[
+  {
+    "title": "単純な往復: 朝の散歩コース",
+    "create_time": 1760000149,
+    "update_time": 1760000749.5,
+    "mapping": {
+      "c1-root": {
+        "id": "c1-root",
+        "message": null,
+        "parent": null,
+        "children": [
+          "c1-u1"
+        ]
+      },
+      "c1-u1": {
+        "id": "c1-u1",
+        "message": {
+          "id": "c1-u1",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760000037.25,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "朝に30分ほど歩くなら、どんなコースがいいですか？"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c1-root",
+        "children": [
+          "c1-a1"
+        ]
+      },
+      "c1-a1": {
+        "id": "c1-a1",
+        "message": {
+          "id": "c1-a1",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760000074.5,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "信号の少ない川沿いや公園の外周がおすすめです。",
+              "往路と復路で景色が変わる周回コースだと飽きにくいですよ。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c1-u1",
+        "children": [
+          "c1-u2"
+        ]
+      },
+      "c1-u2": {
+        "id": "c1-u2",
+        "message": {
+          "id": "c1-u2",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760000111.75,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "雨の日はどうしましょう？"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c1-a1",
+        "children": [
+          "c1-a2"
+        ]
+      },
+      "c1-a2": {
+        "id": "c1-a2",
+        "message": {
+          "id": "c1-a2",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760000149,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "屋根のある商店街やショッピングモールを歩くのも手です。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c1-u2",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "c1-a2",
+    "plugin_ids": null,
+    "conversation_id": "gpt-c001-0000-0000-0000-000000000001",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "is_archived": false,
+    "safe_urls": [],
+    "default_model_slug": "gpt-4o",
+    "id": "gpt-c001-0000-0000-0000-000000000001"
+  },
+  {
+    "title": "分岐あり: 質問を編集・再生成した会話",
+    "create_time": 1760100372.5,
+    "update_time": 1760100973,
+    "mapping": {
+      "c2-root": {
+        "id": "c2-root",
+        "message": null,
+        "parent": null,
+        "children": [
+          "c2-sys"
+        ]
+      },
+      "c2-sys": {
+        "id": "c2-sys",
+        "message": {
+          "id": "c2-sys",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              ""
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-root",
+        "children": [
+          "c2-u1"
+        ]
+      },
+      "c2-u1": {
+        "id": "c2-u1",
+        "message": {
+          "id": "c2-u1",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100074.5,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "紅茶の淹れ方を教えてください。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-sys",
+        "children": [
+          "c2-a1"
+        ]
+      },
+      "c2-a1": {
+        "id": "c2-a1",
+        "message": {
+          "id": "c2-a1",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100111.75,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "沸騰したてのお湯を使い、茶葉に合わせて2〜4分蒸らします。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-u1",
+        "children": [
+          "c2-u2new",
+          "c2-u2old"
+        ]
+      },
+      "c2-u2new": {
+        "id": "c2-u2new",
+        "message": {
+          "id": "c2-u2new",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100149,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "【新しい枝】ミルクティーに向く茶葉は？"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-a1",
+        "children": [
+          "c2-a2gen1",
+          "c2-a2gen2"
+        ]
+      },
+      "c2-a2gen1": {
+        "id": "c2-a2gen1",
+        "message": {
+          "id": "c2-a2gen1",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100186.25,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "【再生成前・古い枝】アッサムが定番です。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-u2new",
+        "children": []
+      },
+      "c2-a2gen2": {
+        "id": "c2-a2gen2",
+        "message": {
+          "id": "c2-a2gen2",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100223.5,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "【新しい枝】コクの強いアッサムやウバが向いています。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-u2new",
+        "children": [
+          "c2-u3"
+        ]
+      },
+      "c2-u3": {
+        "id": "c2-u3",
+        "message": {
+          "id": "c2-u3",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100260.75,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "【新しい枝】ありがとう、試してみます。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-a2gen2",
+        "children": [
+          "c2-a3"
+        ]
+      },
+      "c2-a3": {
+        "id": "c2-a3",
+        "message": {
+          "id": "c2-a3",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100298,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "【新しい枝】どういたしまして。良い一杯を。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-u3",
+        "children": []
+      },
+      "c2-u2old": {
+        "id": "c2-u2old",
+        "message": {
+          "id": "c2-u2old",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100335.25,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "【古い枝】ストレートに向く茶葉は？"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-a1",
+        "children": [
+          "c2-a2old"
+        ]
+      },
+      "c2-a2old": {
+        "id": "c2-a2old",
+        "message": {
+          "id": "c2-a2old",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760100372.5,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "【古い枝】ダージリンがおすすめです。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c2-u2old",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "c2-a3",
+    "plugin_ids": null,
+    "conversation_id": "gpt-c002-0000-0000-0000-000000000002",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "is_archived": false,
+    "safe_urls": [],
+    "default_model_slug": "gpt-4o",
+    "id": "gpt-c002-0000-0000-0000-000000000002"
+  },
+  {
+    "title": "道具あり: グラフの画像と計算",
+    "create_time": 1760200596,
+    "update_time": 1760201196.5,
+    "mapping": {
+      "c3-root": {
+        "id": "c3-root",
+        "message": null,
+        "parent": null,
+        "children": [
+          "c3-sys"
+        ]
+      },
+      "c3-sys": {
+        "id": "c3-sys",
+        "message": {
+          "id": "c3-sys",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              ""
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-root",
+        "children": [
+          "c3-u1"
+        ]
+      },
+      "c3-u1": {
+        "id": "c3-u1",
+        "message": {
+          "id": "c3-u1",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200074.5,
+          "update_time": null,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "image_asset_pointer",
+                "asset_pointer": "file-service://file-IMAGEPOINTER0001",
+                "size_bytes": 123456,
+                "width": 800,
+                "height": 600,
+                "fovea": null,
+                "metadata": null
+              },
+              "この画像の棒グラフの合計値を計算してください。値は 12, 30, 7 です。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-sys",
+        "children": [
+          "c3-a1"
+        ]
+      },
+      "c3-a1": {
+        "id": "c3-a1",
+        "message": {
+          "id": "c3-a1",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200111.75,
+          "update_time": null,
+          "content": {
+            "content_type": "thoughts",
+            "thoughts": [
+              {
+                "summary": "合計の求め方",
+                "content": "3つの値を足せばよい。念のためコードで確かめる。",
+                "finished": true
+              }
+            ],
+            "source_analysis_msg_id": "x"
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-u1",
+        "children": [
+          "c3-a2"
+        ]
+      },
+      "c3-a2": {
+        "id": "c3-a2",
+        "message": {
+          "id": "c3-a2",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200149,
+          "update_time": null,
+          "content": {
+            "content_type": "reasoning_recap",
+            "content": "2 秒間の思考"
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-a1",
+        "children": [
+          "c3-a3"
+        ]
+      },
+      "c3-a3": {
+        "id": "c3-a3",
+        "message": {
+          "id": "c3-a3",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200186.25,
+          "update_time": null,
+          "content": {
+            "content_type": "code",
+            "language": "python",
+            "response_format_name": null,
+            "text": "values = [12, 30, 7]\nprint(sum(values))"
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "python",
+          "channel": null
+        },
+        "parent": "c3-a2",
+        "children": [
+          "c3-t1"
+        ]
+      },
+      "c3-t1": {
+        "id": "c3-t1",
+        "message": {
+          "id": "c3-t1",
+          "author": {
+            "role": "tool",
+            "name": "python",
+            "metadata": {}
+          },
+          "create_time": 1760200223.5,
+          "update_time": null,
+          "content": {
+            "content_type": "execution_output",
+            "text": "49"
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-a3",
+        "children": [
+          "c3-a4"
+        ]
+      },
+      "c3-a4": {
+        "id": "c3-a4",
+        "message": {
+          "id": "c3-a4",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200260.75,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "合計は **49** です。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-t1",
+        "children": [
+          "c3-u2"
+        ]
+      },
+      "c3-u2": {
+        "id": "c3-u2",
+        "message": {
+          "id": "c3-u2",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200298,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "棒グラフの見やすい色の選び方も調べてください。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-a4",
+        "children": [
+          "c3-t2"
+        ]
+      },
+      "c3-t2": {
+        "id": "c3-t2",
+        "message": {
+          "id": "c3-t2",
+          "author": {
+            "role": "tool",
+            "name": "browser",
+            "metadata": {}
+          },
+          "create_time": 1760200335.25,
+          "update_time": null,
+          "content": {
+            "content_type": "tether_browsing_display",
+            "result": "# 配色の基本\n隣り合う棒は明度差をつける。",
+            "summary": "配色のガイド",
+            "assets": null
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-u2",
+        "children": [
+          "c3-t3"
+        ]
+      },
+      "c3-t3": {
+        "id": "c3-t3",
+        "message": {
+          "id": "c3-t3",
+          "author": {
+            "role": "tool",
+            "name": "browser",
+            "metadata": {}
+          },
+          "create_time": 1760200372.5,
+          "update_time": null,
+          "content": {
+            "content_type": "tether_quote",
+            "url": "https://example.com/color",
+            "domain": "example.com",
+            "text": "色覚の多様性に配慮した配色を選ぶ。",
+            "title": "配色の手引き（架空）"
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-t2",
+        "children": [
+          "c3-t4"
+        ]
+      },
+      "c3-t4": {
+        "id": "c3-t4",
+        "message": {
+          "id": "c3-t4",
+          "author": {
+            "role": "tool",
+            "name": "browser",
+            "metadata": {}
+          },
+          "create_time": 1760200409.75,
+          "update_time": null,
+          "content": {
+            "content_type": "system_error",
+            "name": "TimeoutError",
+            "text": "2件目の取得がタイムアウトしました。"
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-t3",
+        "children": [
+          "c3-t5"
+        ]
+      },
+      "c3-t5": {
+        "id": "c3-t5",
+        "message": {
+          "id": "c3-t5",
+          "author": {
+            "role": "tool",
+            "name": "web",
+            "metadata": {}
+          },
+          "create_time": 1760200447,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "検索結果: 3件"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-t4",
+        "children": [
+          "c3-a5"
+        ]
+      },
+      "c3-a5": {
+        "id": "c3-a5",
+        "message": {
+          "id": "c3-a5",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200484.25,
+          "update_time": null,
+          "content": {
+            "content_type": "future_widget",
+            "label": "ウィジェットの見出し",
+            "payload": {
+              "n": 1
+            }
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-t5",
+        "children": [
+          "c3-a6"
+        ]
+      },
+      "c3-a6": {
+        "id": "c3-a6",
+        "message": {
+          "id": "c3-a6",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200521.5,
+          "update_time": null,
+          "content": {
+            "content_type": "opaque_blob",
+            "payload": {
+              "n": 2
+            }
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-a5",
+        "children": [
+          "c3-t6"
+        ]
+      },
+      "c3-t6": {
+        "id": "c3-t6",
+        "message": {
+          "id": "c3-t6",
+          "author": {
+            "role": "tool",
+            "name": "dalle.text2im",
+            "metadata": {}
+          },
+          "create_time": 1760200558.75,
+          "update_time": null,
+          "content": {
+            "content_type": "multimodal_text",
+            "parts": [
+              {
+                "content_type": "image_asset_pointer",
+                "asset_pointer": "sediment://file-IMAGEPOINTER0002",
+                "size_bytes": 2048,
+                "width": 512,
+                "height": 512
+              }
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-a6",
+        "children": [
+          "c3-a9"
+        ]
+      },
+      "c3-a9": {
+        "id": "c3-a9",
+        "message": {
+          "id": "c3-a9",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760200596,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "隣り合う棒の明度差をつけ、色覚の多様性に配慮した配色にしましょう。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c3-t6",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "c3-a9",
+    "plugin_ids": null,
+    "conversation_id": "gpt-c003-0000-0000-0000-000000000003",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "is_archived": false,
+    "safe_urls": [],
+    "default_model_slug": "o3",
+    "id": "gpt-c003-0000-0000-0000-000000000003"
+  },
+  {
+    "title": "除外あり: カスタム指示つきの会話",
+    "create_time": 1760300223.5,
+    "update_time": 1760300824,
+    "mapping": {
+      "c4-root": {
+        "id": "c4-root",
+        "message": null,
+        "parent": null,
+        "children": [
+          "c4-sys"
+        ]
+      },
+      "c4-sys": {
+        "id": "c4-sys",
+        "message": {
+          "id": "c4-sys",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "EXCLUDE-ME 不可視の system"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c4-root",
+        "children": [
+          "c4-ctx"
+        ]
+      },
+      "c4-ctx": {
+        "id": "c4-ctx",
+        "message": {
+          "id": "c4-ctx",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760300074.5,
+          "update_time": null,
+          "content": {
+            "content_type": "user_editable_context",
+            "user_profile": "EXCLUDE-ME プロフィール",
+            "user_instructions": "EXCLUDE-ME 丁寧語で答えて"
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c4-sys",
+        "children": [
+          "c4-sys2"
+        ]
+      },
+      "c4-sys2": {
+        "id": "c4-sys2",
+        "message": {
+          "id": "c4-sys2",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              ""
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c4-ctx",
+        "children": [
+          "c4-u1"
+        ]
+      },
+      "c4-u1": {
+        "id": "c4-u1",
+        "message": {
+          "id": "c4-u1",
+          "author": {
+            "role": "user",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760300149,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "おすすめの文庫本を一冊教えてください。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c4-sys2",
+        "children": [
+          "c4-hid"
+        ]
+      },
+      "c4-hid": {
+        "id": "c4-hid",
+        "message": {
+          "id": "c4-hid",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760300186.25,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "EXCLUDE-ME 不可視の assistant"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c4-u1",
+        "children": [
+          "c4-a1"
+        ]
+      },
+      "c4-a1": {
+        "id": "c4-a1",
+        "message": {
+          "id": "c4-a1",
+          "author": {
+            "role": "assistant",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": 1760300223.5,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              "短編集なら、寝る前に一編ずつ読めて続けやすいですよ。"
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": true,
+          "weight": 1,
+          "metadata": {},
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c4-hid",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "c4-a1",
+    "plugin_ids": null,
+    "conversation_id": "gpt-c004-0000-0000-0000-000000000004",
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "is_archived": false,
+    "safe_urls": [],
+    "default_model_slug": null,
+    "id": "gpt-c004-0000-0000-0000-000000000004"
+  },
+  {
+    "title": "新しいチャット",
+    "create_time": 1760400037.25,
+    "update_time": 1760400637.75,
+    "mapping": {
+      "c5-root": {
+        "id": "c5-root",
+        "message": null,
+        "parent": null,
+        "children": [
+          "c5-sys"
+        ]
+      },
+      "c5-sys": {
+        "id": "c5-sys",
+        "message": {
+          "id": "c5-sys",
+          "author": {
+            "role": "system",
+            "name": null,
+            "metadata": {}
+          },
+          "create_time": null,
+          "update_time": null,
+          "content": {
+            "content_type": "text",
+            "parts": [
+              ""
+            ]
+          },
+          "status": "finished_successfully",
+          "end_turn": null,
+          "weight": 1,
+          "metadata": {
+            "is_visually_hidden_from_conversation": true
+          },
+          "recipient": "all",
+          "channel": null
+        },
+        "parent": "c5-root",
+        "children": []
+      }
+    },
+    "moderation_results": [],
+    "current_node": "c5-sys",
+    "plugin_ids": null,
+    "conversation_template_id": null,
+    "gizmo_id": null,
+    "is_archived": false,
+    "safe_urls": [],
+    "default_model_slug": "gpt-4o",
+    "id": "gpt-c005-0000-0000-0000-000000000005"
+  }
+]
