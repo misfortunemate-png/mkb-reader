@@ -226,7 +226,7 @@ export default function ChatImporter({
       {!conversations && !loading && (
         <div className="bookshelf-empty">
           <p>Claude.ai または ChatGPT の <code>conversations.json</code> を選択してください</p>
-          <p className="hint">Settings → Privacy → Export Data で取得した ZIP に同梱されています</p>
+          <p className="hint">Claude.ai・ChatGPT とも、設定からデータをエクスポートすると届く ZIP に同梱されています</p>
           <button type="button" className="file-btn" onClick={handlePickClick}>
             JSON を選択
           </button>
